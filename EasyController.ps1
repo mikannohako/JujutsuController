@@ -60,6 +60,7 @@ function Write-ECHeader {
     Write-Host "  Easy Controller" -ForegroundColor Cyan
     Write-Host "  Git / Jujutsu project toolkit" -ForegroundColor DarkCyan
     Write-Host "  Version $script:JujutsuControllerVersion" -ForegroundColor DarkGray
+    Write-Host "  Repository: $($script:DefaultRepositoryUrl)" -ForegroundColor DarkGray
     Write-Host "  $('-' * 42)" -ForegroundColor DarkGray
     Write-Host ""
 }
