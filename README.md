@@ -74,20 +74,32 @@ GitHubの最新リリースのバージョン情報と現在のスクリプト�
 2. 任意のフォルダに解凍します。
 3. `start.bat`を開き初期セットアップを開始します。
 
-初期セットアップに合わせて以下のソフトが自動インストールされます。すでにインストールされている場合はインストールは行いません。
+初期セットアップに合わせて以下のソフトが自動インストールされます。すでにインストールされている場合はインストールは行われません。
 
-- PowerShell 7
+- [PowerShell 7](https://learn.microsoft.com/ja-jp/powershell/scripting/install/install-powershell-on-windows)
 
-- Git
+- [Git](https://git-scm.com/)
 
-- Jujutsu
+- [Jujutsu](https://docs.jj-vcs.dev/latest/install-and-setup/)
 
 ## 使い方
 
-### 使う
+1. `start.bat`を起動してください。
 
-start.batをダブルクリックするだけ！それでだいたいわかる。
+2. 2回目以降の起動ではメニュー画面が表示されます。
 
-### 初期設定をもう一度行う。
+3. メニュー画面から各機能を選択して使用してください。
+
+## 初期設定をもう一度行う。
+
+設定はメニューの「保存済みの設定を変更」から変更することができます。基本的にそちらをご利用ください。
 
 `.setup-completed`を削除してください。
+
+## ライセンス・著作権について
+
+このプロジェクトはMITライセンスの下で公開されています。詳細は[LICENSE](LICENSE)ファイルをご確認ください。
+
+© 2026 mikannohako All Rights Reserved.
+
+
