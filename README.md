@@ -24,6 +24,12 @@ GitHubのユーザー名、メールアドレス、リポジトリURL（httpsで
 
 コンフリクトが発生した場合は後述の機能で解決することができます
 
+### ブランチ操作（切り替え / 作成 / マージ / 削除）
+
+`jj bookmark list` `jj bookmark create` `jj new` `jj bookmark set` `jj bookmark delete`
+
+ブランチ操作メニューから、リポジトリのローカルbookmarkの切り替え、作成、マージ、削除を実行できます。切り替え・マージ・削除の前には確認が表示されます。
+
 ### 変更を保存（commit / push）
 
 `jj commit` `jj push`
@@ -101,5 +107,3 @@ GitHubの最新リリースのバージョン情報と現在のスクリプト�
 このプロジェクトはMITライセンスの下で公開されています。詳細は[LICENSE](LICENSE)ファイルをご確認ください。
 
 © 2026 mikannohako All Rights Reserved.
-
-

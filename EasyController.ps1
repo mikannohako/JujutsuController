@@ -303,6 +303,7 @@ function Invoke-ConfigChange {
             [PSCustomObject]@{ Label = "リポジトリURL"; Key = "repository_url"; Value = $currentRepositoryUrl }
         )
         $selected = 0
+        $itemCount = $settings.Count + 1
         while ($true) {
             Write-ECHeader
             Write-Host "  変更する設定を選択してください。" -ForegroundColor Cyan
@@ -513,6 +514,242 @@ function Invoke-Update {
         Clear-StageProgress
         Write-Host "`nエラー: $($_.Exception.Message)" -ForegroundColor Red
         Write-Host "コンフリクトなどが発生している可能性があります。コンフリクトを解決してください。" -ForegroundColor Yellow
+    }
+}
+
+function Get-ECBranches {
+    $branchLines = @(& jj bookmark list)
+    if ($LASTEXITCODE -ne 0) {
+        throw "コマンドに失敗しました: jj bookmark list"
+    }
+
+    $branches = @()
+    foreach ($line in $branchLines) {
+        if ([string]$line -match '^\s*([^:\s]+)\s*:') {
+            $branches += $Matches[1]
+        }
+    }
+
+    return @($branches | Select-Object -Unique)
+}
+
+function Invoke-BranchSwitch {
+    Write-ECHeader
+    try {
+        $branches = @(Get-ECBranches)
+        if ($branches.Count -eq 0) {
+            Write-Host "切り替え可能なブランチがありません。" -ForegroundColor Yellow
+            return
+        }
+
+        $itemCount = $branches.Count + 1
+        $selected = 0
+        while ($true) {
+            Write-ECHeader
+            Write-Host "  切り替えるブランチを選択してください。" -ForegroundColor Cyan
+            Write-Host "  上下:選択  Enter:決定  Esc:キャンセル" -ForegroundColor DarkCyan
+            Write-Host ""
+            for ($index = 0; $index -lt $branches.Count; $index++) {
+                if ($index -eq $selected) {
+                    Write-Host "  > $($branches[$index])" -ForegroundColor White -BackgroundColor DarkGray
+                }
+                else {
+                    Write-Host "    $($branches[$index])" -ForegroundColor Gray
+                }
+            }
+
+            if ($selected -eq $branches.Count) {
+                Write-Host "  > キャンセル" -ForegroundColor Yellow -BackgroundColor DarkGray
+            }
+            else {
+                Write-Host "    キャンセル" -ForegroundColor Yellow
+            }
+            $key = [Console]::ReadKey($true)
+            switch ($key.Key) {
+                "UpArrow" { $selected = ($selected - 1 + $itemCount) % $itemCount }
+                "DownArrow" { $selected = ($selected + 1) % $itemCount }
+                "Escape" { return }
+                "Enter" { break }
+            }
+            if ($key.Key -eq "Enter") {
+                break
+            }
+        }
+
+        if ($selected -eq $branches.Count) {
+            return
+        }
+
+        $branch = $branches[$selected]
+        Write-Host ""
+        Write-Host "選択したブランチ: $branch" -ForegroundColor Cyan
+        Write-Host "現在の作業変更をこのブランチ上の新しい変更へ切り替えます。" -ForegroundColor Yellow
+        $decision = Read-Host "実行しますか？ [y/N]"
+        if ($decision -notmatch '^(?i)y(es)?$') {
+            Write-Host "ブランチ切り替えをキャンセルしました。" -ForegroundColor Yellow
+            return
+        }
+
+        Write-StageProgress 1 1 "ブランチ切り替え" "$branch に切り替えています..."
+        Invoke-RequiredCommand "jj" @("new", $branch)
+        Clear-StageProgress
+        Write-Host "`nブランチを切り替えました: $branch" -ForegroundColor Green
+        Write-Host "新しい作業変更で作業を開始できます。" -ForegroundColor DarkGray
+    }
+    catch {
+        Clear-StageProgress
+        Write-Host "`nエラー: $($_.Exception.Message)" -ForegroundColor Red
+    }
+}
+
+function Invoke-BranchCreate {
+    Write-ECHeader
+    try {
+        $branch = Read-Host "作成するブランチ名（空白でキャンセル）"
+        if ([string]::IsNullOrWhiteSpace($branch)) {
+            Write-Host "ブランチ作成をキャンセルしました。" -ForegroundColor Yellow
+            return
+        }
+        if ($branch -notmatch '^[A-Za-z0-9._/-]+$') {
+            throw "ブランチ名に使用できない文字が含まれています。"
+        }
+
+        Write-StageProgress 1 1 "ブランチ作成" "$branch を作成しています..."
+        Invoke-RequiredCommand "jj" @("bookmark", "create", $branch, "-r", "@")
+        Clear-StageProgress
+        Write-Host "`nブランチを作成しました: $branch" -ForegroundColor Green
+    }
+    catch {
+        Clear-StageProgress
+        Write-Host "`nエラー: $($_.Exception.Message)" -ForegroundColor Red
+    }
+}
+
+function Invoke-BranchDelete {
+    Write-ECHeader
+    try {
+        $branches = @(Get-ECBranches)
+        if ($branches.Count -eq 0) {
+            Write-Host "削除できるブランチがありません。" -ForegroundColor Yellow
+            return
+        }
+
+        Write-Host "削除するブランチ名を入力してください。" -ForegroundColor Cyan
+        $branch = Read-Host "ブランチ名（空白でキャンセル）"
+        if ([string]::IsNullOrWhiteSpace($branch)) {
+            Write-Host "ブランチ削除をキャンセルしました。" -ForegroundColor Yellow
+            return
+        }
+        if ($branches -notcontains $branch) {
+            throw "指定したブランチが見つかりません: $branch"
+        }
+
+        Write-Host "削除対象: $branch" -ForegroundColor Yellow
+        $decision = Read-Host "このブランチを削除しますか？ [y/N]"
+        if ($decision -notmatch '^(?i)y(es)?$') {
+            Write-Host "ブランチ削除をキャンセルしました。" -ForegroundColor Yellow
+            return
+        }
+
+        Write-StageProgress 1 1 "ブランチ削除" "$branch を削除しています..."
+        Invoke-RequiredCommand "jj" @("bookmark", "delete", $branch)
+        Clear-StageProgress
+        Write-Host "`nブランチを削除しました: $branch" -ForegroundColor Green
+    }
+    catch {
+        Clear-StageProgress
+        Write-Host "`nエラー: $($_.Exception.Message)" -ForegroundColor Red
+    }
+}
+
+function Invoke-BranchMerge {
+    Write-ECHeader
+    try {
+        $branches = @(Get-ECBranches)
+        if ($branches.Count -lt 2) {
+            Write-Host "マージには2つ以上のブランチが必要です。" -ForegroundColor Yellow
+            return
+        }
+
+        Write-Host "マージ先（変更を取り込む側）を入力してください。" -ForegroundColor Cyan
+        $target = Read-Host "マージ先ブランチ名（空白でキャンセル）"
+        if ([string]::IsNullOrWhiteSpace($target)) {
+            Write-Host "ブランチマージをキャンセルしました。" -ForegroundColor Yellow
+            return
+        }
+        if ($branches -notcontains $target) {
+            throw "マージ先ブランチが見つかりません: $target"
+        }
+
+        Write-Host "マージ元（取り込む側）を入力してください。" -ForegroundColor Cyan
+        $source = Read-Host "マージ元ブランチ名（空白でキャンセル）"
+        if ([string]::IsNullOrWhiteSpace($source)) {
+            Write-Host "ブランチマージをキャンセルしました。" -ForegroundColor Yellow
+            return
+        }
+        if ($branches -notcontains $source) {
+            throw "マージ元ブランチが見つかりません: $source"
+        }
+        if ($target -eq $source) {
+            throw "マージ先とマージ元には別のブランチを指定してください。"
+        }
+
+        Write-Host "$source を $target にマージします。" -ForegroundColor Yellow
+        $decision = Read-Host "実行しますか？ [y/N]"
+        if ($decision -notmatch '^(?i)y(es)?$') {
+            Write-Host "ブランチマージをキャンセルしました。" -ForegroundColor Yellow
+            return
+        }
+
+        Write-StageProgress 1 2 "ブランチマージ" "マージ変更を作成しています..."
+        Invoke-RequiredCommand "jj" @("new", $target, $source)
+        Write-StageProgress 2 2 "ブランチマージ" "$target をマージ結果へ更新しています..."
+        Invoke-RequiredCommand "jj" @("bookmark", "set", $target, "-r", "@")
+        Clear-StageProgress
+        Write-Host "`nブランチをマージしました: $source -> $target" -ForegroundColor Green
+        Write-Host "必要に応じて「変更を保存」から push してください。" -ForegroundColor DarkGray
+    }
+    catch {
+        Clear-StageProgress
+        Write-Host "`nエラー: $($_.Exception.Message)" -ForegroundColor Red
+    }
+}
+
+function Invoke-BranchManagement {
+    $items = @(
+        @{ Label = "ブランチを切り替え"; Color = "Magenta"; Action = { Invoke-BranchSwitch } },
+        @{ Label = "ブランチを作成"; Color = "Green"; Action = { Invoke-BranchCreate } },
+        @{ Label = "ブランチをマージ"; Color = "Blue"; Action = { Invoke-BranchMerge } },
+        @{ Label = "ブランチを削除"; Color = "Red"; Action = { Invoke-BranchDelete } },
+        @{ Label = "戻る"; Color = "Gray"; Action = { return } }
+    )
+    $selected = 0
+
+    while ($true) {
+        Write-ECHeader
+        Write-Host "  ブランチ操作を選択してください" -ForegroundColor White
+        Write-Host ""
+        for ($index = 0; $index -lt $items.Count; $index++) {
+            if ($index -eq $selected) {
+                Write-Host "  > $($items[$index].Label)" -ForegroundColor $items[$index].Color -BackgroundColor DarkGray
+            }
+            else {
+                Write-Host "    $($items[$index].Label)" -ForegroundColor $items[$index].Color
+            }
+        }
+
+        $key = [Console]::ReadKey($true)
+        switch ($key.Key) {
+            "UpArrow" { $selected = ($selected - 1 + $items.Count) % $items.Count }
+            "DownArrow" { $selected = ($selected + 1) % $items.Count }
+            "Escape" { return }
+            "Enter" {
+                if ($selected -eq ($items.Count - 1)) { return }
+                & $items[$selected].Action
+                Write-Host ""
+                Read-Host "Enter でブランチ操作メニューに戻ります"
+            }
+        }
     }
 }
 
@@ -907,6 +1144,7 @@ function Read-ECMenuChoice {
     $items = @(
         @{ Label = "変更を確認（status / diff）"; Color = "Cyan"; Action = { Invoke-ReviewChanges } },
         @{ Label = "最新の情報を取得（fetch / rebase）"; Color = "Blue"; Action = { Invoke-Update } },
+        @{ Label = "ブランチ操作（切り替え / 作成 / マージ / 削除）"; Color = "Magenta"; Action = { Invoke-BranchManagement } },
         @{ Label = "変更を保存（commit / push）"; Color = "Green"; Action = { Invoke-Publish } },
         @{ Label = "新しい変更で区切る（jj new）"; Color = "DarkCyan"; Action = { Invoke-NewChange } },
         @{ Label = "変更にコメントを付ける（desc）"; Color = "White"; Action = { Invoke-AddDescription } },
@@ -950,6 +1188,8 @@ try {
         if (-not (Invoke-Setup)) {
             exit 1
         }
+
+        Invoke-Update
 
         Write-Host ""
         Read-Host "Enter でメニューに進みます"
