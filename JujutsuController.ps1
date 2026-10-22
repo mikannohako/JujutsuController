@@ -6,10 +6,10 @@ $ErrorActionPreference = "Stop"
 $script:DefaultRepositoryUrl = "https://github.com/mikannohako/JujutsuController.git"
 $script:ConfigPath = Join-Path $PSScriptRoot "config.ini"
 $script:SetupMarkerPath = Join-Path $PSScriptRoot ".setup-completed"
-$script:JujutsuControllerVersion = "3.0.0"
+$script:ControllerVersion = "4.0.0"
 $Host.UI.RawUI.WindowTitle = "JujutsuController"
 
-function Get-ECLatestRelease {
+function Get-LatestRelease {
     $release = Invoke-RestMethod `
         -Uri "https://api.github.com/repos/mikannohako/JujutsuController/releases/latest" `
         -Headers @{ "User-Agent" = "JujutsuController" }
@@ -25,17 +25,17 @@ function Get-ECLatestRelease {
     return $release
 }
 
-function Test-ECUpdate {
+function Test-Update {
     try {
-        $release = Get-ECLatestRelease
+        $release = Get-LatestRelease
 
         $latestVersion = ([string]$release.tag_name).TrimStart("v")
         $latestUrl = [string]$release.html_url
 
-        if ([version]$latestVersion -gt [version]$script:JujutsuControllerVersion) {
+        if ([version]$latestVersion -gt [version]$script:ControllerVersion) {
             Write-Host ""
             Write-Host "新しいJujutsuControllerがあります。" -ForegroundColor Yellow
-            Write-Host "  現在: $script:JujutsuControllerVersion" -ForegroundColor Gray
+            Write-Host "  現在: $script:ControllerVersion" -ForegroundColor Gray
             Write-Host "  最新: $latestVersion" -ForegroundColor Green
             Write-Host ""
 
@@ -54,12 +54,12 @@ function Test-ECUpdate {
     }
 }
 
-function Write-ECHeader {
+function Write-Header {
     Clear-Host
     Write-Host ""
-    Write-Host "  Easy Controller" -ForegroundColor Cyan
+    Write-Host "  Jujutsu Controller" -ForegroundColor Cyan
     Write-Host "  Git / Jujutsu project toolkit" -ForegroundColor DarkCyan
-    Write-Host "  Version $script:JujutsuControllerVersion" -ForegroundColor DarkGray
+    Write-Host "  Version $script:ControllerVersion" -ForegroundColor DarkGray
     Write-Host "  Repository: $($script:DefaultRepositoryUrl)" -ForegroundColor DarkGray
     Write-Host "  $('-' * 42)" -ForegroundColor DarkGray
     Write-Host ""
@@ -97,7 +97,7 @@ function Test-CommandAvailable {
     return $null -ne (Get-Command $Name -ErrorAction SilentlyContinue)
 }
 
-function Read-ECConfig {
+function Read-Config {
     $config = @{}
     if (-not (Test-Path $script:ConfigPath)) {
         return $config
@@ -120,14 +120,14 @@ function Read-ECConfig {
     return $config
 }
 
-function Save-ECConfig {
+function Save-Config {
     param(
         [Parameter(Mandatory)] [string] $UserName,
         [Parameter(Mandatory)] [string] $UserEmail,
         [string] $RepositoryUrl = $script:DefaultRepositoryUrl
     )
 
-    $existingConfig = Read-ECConfig
+    $existingConfig = Read-Config
     $projectDirectory = [string] $existingConfig["project_directory"]
     $lines = @(
         "[user]",
@@ -142,7 +142,7 @@ function Save-ECConfig {
     Write-Host "設定を保存しました: $script:ConfigPath" -ForegroundColor Green
 }
 
-function Save-ECProjectDirectory {
+function Save-ProjectDirectory {
     param([Parameter(Mandatory)] [string] $ProjectDirectory)
 
     $lines = @()
@@ -170,8 +170,8 @@ function Save-ECProjectDirectory {
     [System.IO.File]::WriteAllLines($script:ConfigPath, $lines, $utf8NoBom)
 }
 
-function Get-ECProjectDirectory {
-    $config = Read-ECConfig
+function Get-ProjectDirectory {
+    $config = Read-Config
     $projectDirectory = [string] $config["project_directory"]
     if ([string]::IsNullOrWhiteSpace($projectDirectory)) {
         throw "セットアップ先のプロジェクトフォルダが設定されていません。セットアップを再実行してください。"
@@ -181,22 +181,22 @@ function Get-ECProjectDirectory {
     }
 
     $resolvedProjectDirectory = (Resolve-Path -LiteralPath $projectDirectory).Path
-    $hasJujutsuRepository = Test-Path -LiteralPath (Join-Path $resolvedProjectDirectory ".jj")
+    $hasRepository = Test-Path -LiteralPath (Join-Path $resolvedProjectDirectory ".jj")
     $hasGitRepository = Test-Path -LiteralPath (Join-Path $resolvedProjectDirectory ".git")
-    if (-not ($hasJujutsuRepository -or $hasGitRepository)) {
+    if (-not ($hasRepository -or $hasGitRepository)) {
         throw "保存済みのフォルダは Git/Jujutsu リポジトリではありません: $resolvedProjectDirectory"
     }
 
     return $resolvedProjectDirectory
 }
 
-function Set-ECProjectLocation {
-    $projectDirectory = Get-ECProjectDirectory
+function Set-ProjectLocation {
+    $projectDirectory = Get-ProjectDirectory
     Set-Location -LiteralPath $projectDirectory
 }
 
-function Get-ECRepositoryUrl {
-    $config = Read-ECConfig
+function Get-RepositoryUrl {
+    $config = Read-Config
     $repositoryUrl = [string] $config["repository_url"]
     if ([string]::IsNullOrWhiteSpace($repositoryUrl)) {
         return $script:DefaultRepositoryUrl
@@ -204,21 +204,21 @@ function Get-ECRepositoryUrl {
     return $repositoryUrl
 }
 
-function Read-ECRepositorySettings {
+function Read-RepositorySettings {
     param([Parameter(Mandatory)] [hashtable] $UserSettings)
 
-    $currentRepositoryUrl = Get-ECRepositoryUrl
+    $currentRepositoryUrl = Get-RepositoryUrl
     Write-Host ""
     Write-Host "cloneするリポジトリを選択してください。" -ForegroundColor Cyan
     $repositoryUrl = Read-Host "リポジトリURL [$currentRepositoryUrl]"
     if ([string]::IsNullOrWhiteSpace($repositoryUrl)) {
         $repositoryUrl = $currentRepositoryUrl
     }
-    Test-ECRepositoryUrl -RepositoryUrl $repositoryUrl
+    Test-RepositoryUrl -RepositoryUrl $repositoryUrl
 
     $saveDecision = Read-Host "このリポジトリURLを設定に保存しますか？ [Y/n/C]"
     if ([string]::IsNullOrWhiteSpace($saveDecision) -or $saveDecision -match '^(?i)y(es)?$') {
-        Save-ECConfig -UserName $UserSettings.Name -UserEmail $UserSettings.Email -RepositoryUrl $repositoryUrl
+        Save-Config -UserName $UserSettings.Name -UserEmail $UserSettings.Email -RepositoryUrl $repositoryUrl
     }
     elseif ($saveDecision -match '^(?i)c(ancel)?$') {
         throw "リポジトリ選択をキャンセルしました。"
@@ -230,7 +230,7 @@ function Read-ECRepositorySettings {
     return $repositoryUrl
 }
 
-function Test-ECRepositoryUrl {
+function Test-RepositoryUrl {
     param([Parameter(Mandatory)] [string] $RepositoryUrl)
 
     if ($RepositoryUrl -match '^git@[^:]+:.+$') {
@@ -243,7 +243,7 @@ function Test-ECRepositoryUrl {
     }
 }
 
-function Read-ECSaveDecision {
+function Read-SaveDecision {
     $decision = Read-Host "設定を保存しますか？ [Y/n/C]"
     if ([string]::IsNullOrWhiteSpace($decision) -or $decision -match '^(?i)y(es)?$') {
         return "save"
@@ -254,8 +254,8 @@ function Read-ECSaveDecision {
     return "skip"
 }
 
-function Read-ECUserSettings {
-    $config = Read-ECConfig
+function Read-UserSettings {
+    $config = Read-Config
     $savedName = [string] $config["name"]
     $savedEmail = [string] $config["email"]
     $hasSavedSettings = -not [string]::IsNullOrWhiteSpace($savedName) -and -not [string]::IsNullOrWhiteSpace($savedEmail)
@@ -276,12 +276,12 @@ function Read-ECUserSettings {
         throw "名前とメールアドレスは必須です。"
     }
 
-    $saveDecision = Read-ECSaveDecision
+    $saveDecision = Read-SaveDecision
     if ($saveDecision -eq "cancel") {
         throw "設定の保存をキャンセルしました。"
     }
     if ($saveDecision -eq "save") {
-        Save-ECConfig -UserName $userName -UserEmail $userEmail -RepositoryUrl (Get-ECRepositoryUrl)
+        Save-Config -UserName $userName -UserEmail $userEmail -RepositoryUrl (Get-RepositoryUrl)
     }
     else {
         Write-Host "設定は保存せず、この処理でのみ利用します。" -ForegroundColor Yellow
@@ -290,12 +290,12 @@ function Read-ECUserSettings {
 }
 
 function Invoke-ConfigChange {
-    Write-ECHeader
+    Write-Header
     try {
-        $config = Read-ECConfig
+        $config = Read-Config
         $currentName = [string] $config["name"]
         $currentEmail = [string] $config["email"]
-        $currentRepositoryUrl = Get-ECRepositoryUrl
+        $currentRepositoryUrl = Get-RepositoryUrl
 
         $settings = @(
             [PSCustomObject]@{ Label = "Git ユーザー名"; Key = "name"; Value = $currentName },
@@ -305,7 +305,7 @@ function Invoke-ConfigChange {
         $selected = 0
         $itemCount = $settings.Count + 1
         while ($true) {
-            Write-ECHeader
+            Write-Header
             Write-Host "  変更する設定を選択してください。" -ForegroundColor Cyan
             Write-Host "  上下:選択  Enter:決定  Esc:キャンセル" -ForegroundColor DarkCyan
             Write-Host ""
@@ -360,8 +360,8 @@ function Invoke-ConfigChange {
         if ([string]::IsNullOrWhiteSpace($newName) -or [string]::IsNullOrWhiteSpace($newEmail)) {
             throw "名前とメールアドレスは必須です。"
         }
-        Test-ECRepositoryUrl -RepositoryUrl $newRepositoryUrl
-        Save-ECConfig -UserName $newName -UserEmail $newEmail -RepositoryUrl $newRepositoryUrl
+        Test-RepositoryUrl -RepositoryUrl $newRepositoryUrl
+        Save-Config -UserName $newName -UserEmail $newEmail -RepositoryUrl $newRepositoryUrl
     }
     catch {
         Write-Host "`nエラー: $($_.Exception.Message)" -ForegroundColor Red
@@ -407,7 +407,7 @@ function Install-RequiredTools {
     Update-ProcessPath
 }
 
-function Select-ECProjectDirectory {
+function Select-ProjectDirectory {
     $projectName = Read-Host "プロジェクトフォルダ名"
     if ([string]::IsNullOrWhiteSpace($projectName)) {
         throw "プロジェクトフォルダ名が入力されていません。"
@@ -433,10 +433,10 @@ function Select-ECProjectDirectory {
         if (-not (Test-Path $projectDirectory -PathType Container)) {
             throw "同名のファイルが既に存在します: $projectDirectory"
         }
-        $hasJujutsuRepository = Test-Path -LiteralPath (Join-Path $projectDirectory ".jj")
+        $hasRepository = Test-Path -LiteralPath (Join-Path $projectDirectory ".jj")
         $hasGitRepository = Test-Path -LiteralPath (Join-Path $projectDirectory ".git")
         $hasExistingFiles = @(Get-ChildItem -LiteralPath $projectDirectory -Force).Count -gt 0
-        if ($hasExistingFiles -and -not ($hasJujutsuRepository -or $hasGitRepository)) {
+        if ($hasExistingFiles -and -not ($hasRepository -or $hasGitRepository)) {
             throw "選択した場所に既存のファイルがあります: $projectDirectory"
         }
     }
@@ -444,47 +444,47 @@ function Select-ECProjectDirectory {
     return $projectDirectory
 }
 
-function Initialize-ECRepository {
-    $projectDirectory = Select-ECProjectDirectory
+function Initialize-Repository {
+    $projectDirectory = Select-ProjectDirectory
 
     New-Item -ItemType Directory -Path $projectDirectory -Force | Out-Null
     Set-Location $projectDirectory
 
-    $userSettings = Read-ECUserSettings
-    $repositoryUrl = Read-ECRepositorySettings -UserSettings $userSettings
+    $userSettings = Read-UserSettings
+    $repositoryUrl = Read-RepositorySettings -UserSettings $userSettings
 
     Invoke-RequiredCommand "jj" @("config", "set", "--user", "user.name", $userSettings.Name)
     Invoke-RequiredCommand "jj" @("config", "set", "--user", "user.email", $userSettings.Email)
 
-    $hasJujutsuRepository = Test-Path -LiteralPath (Join-Path $projectDirectory ".jj")
+    $hasRepository = Test-Path -LiteralPath (Join-Path $projectDirectory ".jj")
     $hasGitRepository = Test-Path -LiteralPath (Join-Path $projectDirectory ".git")
-    if ($hasJujutsuRepository -or $hasGitRepository) {
+    if ($hasRepository -or $hasGitRepository) {
         Write-Host "既存のリポジトリを使用します..." -ForegroundColor Yellow
     }
     else {
         Write-Host "リポジトリを取得しています..." -ForegroundColor Yellow
         Invoke-RequiredCommand "jj" @("git", "clone", $repositoryUrl, ".")
     }
-    Save-ECProjectDirectory -ProjectDirectory $projectDirectory
+    Save-ProjectDirectory -ProjectDirectory $projectDirectory
     explorer.exe $projectDirectory
 
     Write-Host "セットアップ先: $projectDirectory" -ForegroundColor Green
 }
 
 function Invoke-Setup {
-    Write-ECHeader
+    Write-Header
     $total = 3
     try {
-        Write-StageProgress 1 $total "EC セットアップ" "必要なツールを確認しています..."
+        Write-StageProgress 1 $total "JC セットアップ" "必要なツールを確認しています..."
         Install-RequiredTools
 
-        Write-StageProgress 2 $total "EC セットアップ" "リポジトリ設定を準備しています..."
+        Write-StageProgress 2 $total "JC セットアップ" "リポジトリ設定を準備しています..."
         if (-not (Test-CommandAvailable "jj")) {
             throw "PATH 再読み込み後も jj が見つかりません。新しい PowerShell で再実行してください。"
         }
 
-        Write-StageProgress 3 $total "EC セットアップ" "ユーザー設定とリポジトリを準備しています..."
-        Initialize-ECRepository
+        Write-StageProgress 3 $total "JC セットアップ" "ユーザー設定とリポジトリを準備しています..."
+        Initialize-Repository
         Clear-StageProgress
         Set-Content -LiteralPath $script:SetupMarkerPath -Value "completed" -Encoding utf8
         Write-Host "`nセットアップが完了しました。" -ForegroundColor Green
@@ -498,12 +498,12 @@ function Invoke-Setup {
 }
 
 function Invoke-Update {
-    Write-ECHeader
+    Write-Header
     try {
-        Write-StageProgress 1 2 "EC 更新" "サーバーから最新情報を取得しています..."
+        Write-StageProgress 1 2 "JC 更新" "サーバーから最新情報を取得しています..."
         Invoke-RequiredCommand "jj" @("git", "fetch")
 
-        Write-StageProgress 2 2 "EC 更新" "最新の main に合わせています..."
+        Write-StageProgress 2 2 "JC 更新" "最新の main に合わせています..."
         Invoke-RequiredCommand "jj" @("rebase", "-d", "main@origin")
         Clear-StageProgress
         Write-Host "`n更新が完了しました。`n" -ForegroundColor Green
@@ -517,7 +517,7 @@ function Invoke-Update {
     }
 }
 
-function Get-ECBranches {
+function Get-Branches {
     $branchLines = @(& jj bookmark list)
     if ($LASTEXITCODE -ne 0) {
         throw "コマンドに失敗しました: jj bookmark list"
@@ -534,9 +534,9 @@ function Get-ECBranches {
 }
 
 function Invoke-BranchSwitch {
-    Write-ECHeader
+    Write-Header
     try {
-        $branches = @(Get-ECBranches)
+        $branches = @(Get-Branches)
         if ($branches.Count -eq 0) {
             Write-Host "切り替え可能なブランチがありません。" -ForegroundColor Yellow
             return
@@ -545,7 +545,7 @@ function Invoke-BranchSwitch {
         $itemCount = $branches.Count + 1
         $selected = 0
         while ($true) {
-            Write-ECHeader
+            Write-Header
             Write-Host "  切り替えるブランチを選択してください。" -ForegroundColor Cyan
             Write-Host "  上下:選択  Enter:決定  Esc:キャンセル" -ForegroundColor DarkCyan
             Write-Host ""
@@ -603,7 +603,7 @@ function Invoke-BranchSwitch {
 }
 
 function Invoke-BranchCreate {
-    Write-ECHeader
+    Write-Header
     try {
         $branch = Read-Host "作成するブランチ名（空白でキャンセル）"
         if ([string]::IsNullOrWhiteSpace($branch)) {
@@ -626,9 +626,9 @@ function Invoke-BranchCreate {
 }
 
 function Invoke-BranchDelete {
-    Write-ECHeader
+    Write-Header
     try {
-        $branches = @(Get-ECBranches)
+        $branches = @(Get-Branches)
         if ($branches.Count -eq 0) {
             Write-Host "削除できるブランチがありません。" -ForegroundColor Yellow
             return
@@ -663,9 +663,9 @@ function Invoke-BranchDelete {
 }
 
 function Invoke-BranchMerge {
-    Write-ECHeader
+    Write-Header
     try {
-        $branches = @(Get-ECBranches)
+        $branches = @(Get-Branches)
         if ($branches.Count -lt 2) {
             Write-Host "マージには2つ以上のブランチが必要です。" -ForegroundColor Yellow
             return
@@ -726,7 +726,7 @@ function Invoke-BranchManagement {
     $selected = 0
 
     while ($true) {
-        Write-ECHeader
+        Write-Header
         Write-Host "  ブランチ操作を選択してください" -ForegroundColor White
         Write-Host ""
         for ($index = 0; $index -lt $items.Count; $index++) {
@@ -754,12 +754,12 @@ function Invoke-BranchManagement {
 }
 
 function Invoke-Publish {
-    Write-ECHeader
+    Write-Header
     try {
 
         Invoke-Update
 
-        Write-StageProgress 1 4 "EC 保存" "変更を確認しています..."
+        Write-StageProgress 1 4 "JC 保存" "変更を確認しています..."
         Invoke-RequiredCommand "jj" @("status")
         
         Write-Host ""
@@ -792,13 +792,13 @@ function Invoke-Publish {
             return
         }
 
-        Write-StageProgress 2 4 "EC 保存" "変更にコメントを設定しています..."
+        Write-StageProgress 2 4 "JC 保存" "変更にコメントを設定しています..."
         Invoke-RequiredCommand "jj" @("desc", "-m", $comment)
 
-        Write-StageProgress 3 4 "EC 保存" "main を更新しています..."
+        Write-StageProgress 3 4 "JC 保存" "main を更新しています..."
         Invoke-RequiredCommand "jj" @("bookmark", "set", "main", "-r", "@")
 
-        Write-StageProgress 4 4 "EC 保存" "サーバーへアップロードしています..."
+        Write-StageProgress 4 4 "JC 保存" "サーバーへアップロードしています..."
         Invoke-RequiredCommand "jj" @("git", "push")
         Clear-StageProgress
         Write-Host "`nアップロードが完了しました。" -ForegroundColor Green
@@ -811,7 +811,7 @@ function Invoke-Publish {
 }
 
 function Invoke-NewChange {
-    Write-ECHeader
+    Write-Header
     try {
         Write-Host "新しい変更のコメントを入力してください。（空白でキャンセル）" -ForegroundColor Cyan
         $comment = Read-Host "変更コメント"
@@ -820,7 +820,7 @@ function Invoke-NewChange {
             Write-Host "`n変更をキャンセルしました。" -ForegroundColor Yellow
             return
         }
-        Write-StageProgress 1 1 "EC 区切り" "新しい変更を作成しています..."
+        Write-StageProgress 1 1 "JC 区切り" "新しい変更を作成しています..."
         Invoke-RequiredCommand "jj" @("new", "-m", $comment)
         Clear-StageProgress
         Write-Host "`n新しい変更を作成しました。" -ForegroundColor Green
@@ -832,7 +832,7 @@ function Invoke-NewChange {
 }
 
 function Invoke-AddDescription {
-    Write-ECHeader
+    Write-Header
     try {
         while ($true) {
             $logLines = @(& jj log -r "mutable() ~ root()" --no-graph -T 'change_id ++ "\t" ++ committer.timestamp() ++ "\t" ++ description.first_line() ++ "\n"')
@@ -863,7 +863,7 @@ function Invoke-AddDescription {
 
             $selectedIndex = 0
             while ($true) {
-                Write-ECHeader
+                Write-Header
                 Write-Host "  コメントを設定・変更する変更を選択してください。" -ForegroundColor Cyan
                 Write-Host "  上下:選択  Enter:決定  Esc:キャンセル" -ForegroundColor DarkCyan
                 Write-Host ""
@@ -917,7 +917,7 @@ function Invoke-AddDescription {
 }
 
 function Invoke-Undo {
-    Write-ECHeader
+    Write-Header
     try {
         Write-Host "直前の操作を取り消します。" -ForegroundColor Yellow
         $decision = Read-Host "実行しますか？ [y/N]"
@@ -926,7 +926,7 @@ function Invoke-Undo {
             return
         }
 
-        Write-StageProgress 1 1 "EC Undo" "直前の操作を取り消しています..."
+        Write-StageProgress 1 1 "JC Undo" "直前の操作を取り消しています..."
         Invoke-RequiredCommand "jj" @("undo")
         Clear-StageProgress
         Write-Host "`n直前の操作を取り消しました。" -ForegroundColor Green
@@ -937,7 +937,7 @@ function Invoke-Undo {
     }
 }
 
-function Get-ECConflictFiles {
+function Get-ConflictFiles {
     $conflictLines = @(& jj resolve --list 2>&1)
     if ($LASTEXITCODE -ne 0) {
         $errorText = ($conflictLines | ForEach-Object { [string] $_ }) -join [Environment]::NewLine
@@ -962,16 +962,16 @@ function Get-ECConflictFiles {
 
 function Invoke-ResolveConflicts {
     try {
-        $conflictFiles = @(Get-ECConflictFiles)
+        $conflictFiles = @(Get-ConflictFiles)
         if ($conflictFiles.Count -eq 0) {
-            Write-ECHeader
+            Write-Header
             Write-Host "  コンフリクトがありません。" -ForegroundColor Green
             return
         }
 
         $selected = 0
         while ($true) {
-            Write-ECHeader
+            Write-Header
             Write-Host "  解決するコンフリクトを選択してください。" -ForegroundColor Cyan
             Write-Host "  上下:選択  Enter:決定  Esc:キャンセル" -ForegroundColor DarkCyan
             Write-Host ""
@@ -1048,12 +1048,12 @@ function Invoke-ReviewChanges {
 
         Clear-StageProgress
         if ($changedFiles.Count -eq 0) {
-            Write-ECHeader
+            Write-Header
             Write-Host "  変更されたファイルはありません。" -ForegroundColor Green
             return
         }
 
-        Read-ECChangedFileChoice -ChangedFiles $changedFiles
+        Read-ChangedFileChoice -ChangedFiles $changedFiles
     }
     catch {
         Clear-StageProgress
@@ -1062,7 +1062,7 @@ function Invoke-ReviewChanges {
 }
 
 function Invoke-ViewHistory {
-    Write-ECHeader
+    Write-Header
     try {
         Write-Host "  変更履歴（最近10件）" -ForegroundColor Cyan
         Write-Host ""
@@ -1078,7 +1078,7 @@ function Invoke-ViewHistory {
     Write-Host ""
 }
 
-function Get-ECStatusColor {
+function Get-StatusColor {
     param([Parameter(Mandatory)] [string] $Status)
 
     switch ($Status) {
@@ -1090,19 +1090,19 @@ function Get-ECStatusColor {
     }
 }
 
-function Read-ECChangedFileChoice {
+function Read-ChangedFileChoice {
     param([Parameter(Mandatory)] [array] $ChangedFiles)
 
     $selected = 0
     while ($true) {
-        Write-ECHeader
+        Write-Header
         Write-Host "  変更されたファイル" -ForegroundColor White
         Write-Host "  M:変更  A:追加  D:削除  R:名前変更" -ForegroundColor DarkGray
         Write-Host ""
 
         for ($index = 0; $index -lt $ChangedFiles.Count; $index++) {
             $file = $ChangedFiles[$index]
-            $color = Get-ECStatusColor -Status $file.Status
+            $color = Get-StatusColor -Status $file.Status
             $line = "[$($file.Status)] $($file.Path)"
             if ($index -eq $selected) {
                 Write-Host "  > $line" -ForegroundColor $color -BackgroundColor DarkGray
@@ -1120,16 +1120,16 @@ function Read-ECChangedFileChoice {
             "DownArrow" { $selected = ($selected + 1) % $ChangedFiles.Count }
             "Escape" { return }
             "Enter" {
-                Show-ECFileDiff -Path $ChangedFiles[$selected].Path
+                Show-FileDiff -Path $ChangedFiles[$selected].Path
             }
         }
     }
 }
 
-function Show-ECFileDiff {
+function Show-FileDiff {
     param([Parameter(Mandatory)] [string] $Path)
 
-    Write-ECHeader
+    Write-Header
     Write-Host "  [$Path]" -ForegroundColor Cyan
     Write-Host ""
     & jj diff -- $Path
@@ -1140,7 +1140,7 @@ function Show-ECFileDiff {
     Read-Host "Enter でファイル一覧に戻ります"
 }
 
-function Read-ECMenuChoice {
+function Read-MenuChoice {
     $items = @(
         @{ Label = "変更を確認（status / diff）"; Color = "Cyan"; Action = { Invoke-ReviewChanges } },
         @{ Label = "最新の情報を取得（fetch / rebase）"; Color = "Blue"; Action = { Invoke-Update } },
@@ -1157,7 +1157,7 @@ function Read-ECMenuChoice {
     $selected = 0
 
     while ($true) {
-        Write-ECHeader
+        Write-Header
         Write-Host "  操作を選択してください" -ForegroundColor White
         Write-Host ""
         for ($index = 0; $index -lt $items.Count; $index++) {
@@ -1196,7 +1196,7 @@ try {
     }
     else {
         try {
-            Set-ECProjectLocation
+            Set-ProjectLocation
         }
         catch {
             Write-Host "`n保存済みプロジェクトを利用できません: $($_.Exception.Message)" -ForegroundColor Yellow
@@ -1214,9 +1214,9 @@ try {
     }
 
     # JujutsuControllerの更新確認
-    Test-ECUpdate
+    Test-Update
 
-    Read-ECMenuChoice
+    Read-MenuChoice
 }
 catch {
     Write-Host "`n致命的なエラー: $($_.Exception.Message)" -ForegroundColor Red

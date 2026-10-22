@@ -17,7 +17,7 @@ if errorlevel 1 (
     )
 
     echo.
-    echo Installation completed. Restarting EasyController...
+    echo Installation completed. Restarting JujutsuController...
     timeout /t 2 >nul
 
     remove-item -literalpath .\.setup-completed -force -erroraction stop
@@ -26,4 +26,4 @@ if errorlevel 1 (
     exit /b
 )
 
-pwsh -NoProfile -ExecutionPolicy Bypass -File "%~dp0EasyController.ps1"
+pwsh -NoProfile -ExecutionPolicy Bypass -File "%~dp0JujutsuController.ps1"
