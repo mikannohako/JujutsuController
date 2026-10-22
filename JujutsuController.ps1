@@ -124,17 +124,22 @@ function Save-Config {
     param(
         [Parameter(Mandatory)] [string] $UserName,
         [Parameter(Mandatory)] [string] $UserEmail,
-        [string] $RepositoryUrl = $script:DefaultRepositoryUrl
+        [string] $RepositoryUrl = $script:DefaultRepositoryUrl,
+        [AllowEmptyString()] [string] $SshSigningKey = $null
     )
 
     $existingConfig = Read-Config
     $projectDirectory = [string] $existingConfig["project_directory"]
+    if ($null -eq $SshSigningKey) {
+        $SshSigningKey = [string] $existingConfig["ssh_signing_key"]
+    }
     $lines = @(
         "[user]",
         "name=$UserName",
         "email=$UserEmail",
         "repository_url=$RepositoryUrl",
         "project_directory=$projectDirectory",
+        "ssh_signing_key=$SshSigningKey",
         ""
     )
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
@@ -202,6 +207,128 @@ function Get-RepositoryUrl {
         return $script:DefaultRepositoryUrl
     }
     return $repositoryUrl
+}
+
+function Get-SshSigningKey {
+    $config = Read-Config
+    return [string] $config["ssh_signing_key"]
+}
+
+function Test-SshSigningKey {
+    param([Parameter(Mandatory)] [string] $PublicKey)
+
+    $normalizedKey = ($PublicKey -replace "`r`n", "`n").Trim()
+    $keyLines = @($normalizedKey -split "`n" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    if ($keyLines.Count -ne 1) {
+        throw "SSH公開鍵は1行で入力してください。秘密鍵の内容は指定しないでください。"
+    }
+    if ($keyLines[0] -notmatch '^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp(256|384|521))\s+\S+(?:\s+.*)?$') {
+        throw "SSH公開鍵の形式を確認できません。ssh-ed25519、ssh-rsa、またはECDSA公開鍵を指定してください。"
+    }
+    return $keyLines[0].Trim()
+}
+
+function Remove-OptionalConfigValue {
+    param(
+        [Parameter(Mandatory)] [string] $Command,
+        [Parameter(Mandatory)] [string[]] $Arguments,
+        [Parameter(Mandatory)] [int[]] $AllowedExitCodes
+    )
+
+    & $Command @Arguments
+    if ($LASTEXITCODE -notin $AllowedExitCodes) {
+        throw "コマンドに失敗しました: $Command $($Arguments -join ' ')"
+    }
+}
+
+function Set-SshSigningConfiguration {
+    param(
+        [Parameter(Mandatory)] [AllowEmptyString()] [string] $PublicKey
+    )
+
+    if ([string]::IsNullOrWhiteSpace($PublicKey)) {
+        Remove-OptionalConfigValue "git" @("config", "--global", "--unset", "gpg.format") @(0, 5)
+        Remove-OptionalConfigValue "git" @("config", "--global", "--unset", "user.signingkey") @(0, 5)
+        Remove-OptionalConfigValue "git" @("config", "--global", "--unset", "commit.gpgsign") @(0, 5)
+        Remove-OptionalConfigValue "jj" @("config", "unset", "--user", "signing.backend") @(0, 1)
+        Remove-OptionalConfigValue "jj" @("config", "unset", "--user", "signing.key") @(0, 1)
+        return
+    }
+
+    $normalizedKey = Test-SshSigningKey -PublicKey $PublicKey
+    Invoke-RequiredCommand "git" @("config", "--global", "gpg.format", "ssh")
+    Invoke-RequiredCommand "git" @("config", "--global", "user.signingkey", $normalizedKey)
+    Invoke-RequiredCommand "git" @("config", "--global", "commit.gpgsign", "true")
+    Invoke-RequiredCommand "jj" @("config", "set", "--user", "signing.backend", "ssh")
+    Invoke-RequiredCommand "jj" @("config", "set", "--user", "signing.key", $normalizedKey)
+
+    try {
+        Set-Clipboard -Value $normalizedKey
+        Write-Host "公開鍵をクリップボードへコピーしました。" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "公開鍵のクリップボードへのコピーに失敗しました: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+    Write-Host "GitHubの SSH signing key 登録画面で公開鍵を登録してください。" -ForegroundColor Yellow
+    $openGitHub = Read-Host "GitHubの登録画面を開きますか？ [Y/n]"
+    if ([string]::IsNullOrWhiteSpace($openGitHub) -or $openGitHub -match '^(?i)y(es)?$') {
+        Start-Process "https://github.com/settings/keys"
+    }
+}
+
+function Read-SshSigningSettings {
+    param([Parameter(Mandatory)] [string] $UserEmail)
+
+    $currentKey = Get-SshSigningKey
+    if (-not [string]::IsNullOrWhiteSpace($currentKey) -and
+        (Test-Path -LiteralPath $currentKey -PathType Leaf)) {
+        $currentKey = [System.IO.File]::ReadAllText($currentKey).Trim()
+    }
+    if (-not [string]::IsNullOrWhiteSpace($currentKey)) {
+        Write-Host ""
+        Write-Host "保存済みのSSH署名鍵: $currentKey" -ForegroundColor Cyan
+        $decision = Read-Host "このSSH署名鍵を利用しますか？ [Y/n/D(解除)]"
+        if ([string]::IsNullOrWhiteSpace($decision) -or $decision -match '^(?i)y(es)?$') {
+            $normalizedKey = Test-SshSigningKey -PublicKey $currentKey
+            Set-SshSigningConfiguration -PublicKey $normalizedKey
+            return $normalizedKey
+        }
+        if ($decision -match '^(?i)d(elete)?$') {
+            Set-SshSigningConfiguration -PublicKey ""
+            return ""
+        }
+    }
+
+    $enable = Read-Host "SSH署名鍵を設定・変更しますか？ [y/N]"
+    if ($enable -notmatch '^(?i)y(es)?$') {
+        return $currentKey
+    }
+
+    Write-Host "公開鍵の指定方法を選択してください。" -ForegroundColor Cyan
+    Write-Host "  F: 公開鍵ファイルを読み込む"
+    Write-Host "  T: 公開鍵を文章で入力する"
+    $inputMethod = Read-Host "指定方法 [F/T]"
+    if ($inputMethod -match '^(?i)f(ile)?$') {
+        $keyPath = Read-Host "SSH公開鍵ファイルのパス"
+        if ([string]::IsNullOrWhiteSpace($keyPath)) {
+            throw "SSH公開鍵ファイルのパスが入力されていません。"
+        }
+        $resolvedPath = [System.IO.Path]::GetFullPath($keyPath.Trim().Trim('"'))
+        if (-not (Test-Path -LiteralPath $resolvedPath -PathType Leaf)) {
+            throw "SSH公開鍵ファイルが見つかりません: $resolvedPath"
+        }
+        $inputKey = [System.IO.File]::ReadAllText($resolvedPath)
+    }
+    elseif ($inputMethod -match '^(?i)t(ext)?$') {
+        $inputKey = Read-Host "SSH公開鍵を1行で入力してください"
+    }
+    else {
+        throw "公開鍵の指定方法は F または T です。"
+    }
+
+    $normalizedKey = Test-SshSigningKey -PublicKey $inputKey
+    Set-SshSigningConfiguration -PublicKey $normalizedKey
+    return $normalizedKey
 }
 
 function Read-RepositorySettings {
@@ -296,11 +423,14 @@ function Invoke-ConfigChange {
         $currentName = [string] $config["name"]
         $currentEmail = [string] $config["email"]
         $currentRepositoryUrl = Get-RepositoryUrl
+        $currentSshSigningKey = [string] $config["ssh_signing_key"]
+        $sshSigningLabel = if ([string]::IsNullOrWhiteSpace($currentSshSigningKey)) { "未設定" } else { $currentSshSigningKey }
 
         $settings = @(
             [PSCustomObject]@{ Label = "Git ユーザー名"; Key = "name"; Value = $currentName },
             [PSCustomObject]@{ Label = "Git メールアドレス"; Key = "email"; Value = $currentEmail },
-            [PSCustomObject]@{ Label = "リポジトリURL"; Key = "repository_url"; Value = $currentRepositoryUrl }
+            [PSCustomObject]@{ Label = "リポジトリURL"; Key = "repository_url"; Value = $currentRepositoryUrl },
+            [PSCustomObject]@{ Label = "SSH署名鍵"; Key = "ssh_signing_key"; Value = $sshSigningLabel }
         )
         $selected = 0
         $itemCount = $settings.Count + 1
@@ -343,6 +473,17 @@ function Invoke-ConfigChange {
         }
 
         $setting = $settings[$selected]
+        if ($setting.Key -eq "ssh_signing_key") {
+            $newSshSigningKey = Read-SshSigningSettings -UserEmail $currentEmail
+            Save-Config `
+                -UserName $currentName `
+                -UserEmail $currentEmail `
+                -RepositoryUrl $currentRepositoryUrl `
+                -SshSigningKey $newSshSigningKey
+            Write-Host "SSH署名鍵の設定を更新しました。" -ForegroundColor Green
+            return
+        }
+
         $newValue = Read-Host "$($setting.Label) [$($setting.Value)]"
         if ([string]::IsNullOrWhiteSpace($newValue)) {
             Write-Host "設定変更をキャンセルしました。" -ForegroundColor Yellow
@@ -452,6 +593,12 @@ function Initialize-Repository {
 
     $userSettings = Read-UserSettings
     $repositoryUrl = Read-RepositorySettings -UserSettings $userSettings
+    $sshSigningKey = Read-SshSigningSettings -UserEmail $userSettings.Email
+    Save-Config `
+        -UserName $userSettings.Name `
+        -UserEmail $userSettings.Email `
+        -RepositoryUrl $repositoryUrl `
+        -SshSigningKey $sshSigningKey
 
     Invoke-RequiredCommand "jj" @("config", "set", "--user", "user.name", $userSettings.Name)
     Invoke-RequiredCommand "jj" @("config", "set", "--user", "user.email", $userSettings.Email)
@@ -1142,15 +1289,15 @@ function Show-FileDiff {
 
 function Read-MenuChoice {
     $items = @(
-        @{ Label = "変更を確認（status / diff）"; Color = "Cyan"; Action = { Invoke-ReviewChanges } },
-        @{ Label = "最新の情報を取得（fetch / rebase）"; Color = "Blue"; Action = { Invoke-Update } },
+        @{ Label = "変更を確認"; Color = "Cyan"; Action = { Invoke-ReviewChanges } },
+        @{ Label = "最新の情報を取得"; Color = "Blue"; Action = { Invoke-Update } },
         @{ Label = "ブランチ操作（切り替え / 作成 / マージ / 削除）"; Color = "Magenta"; Action = { Invoke-BranchManagement } },
-        @{ Label = "変更を保存（commit / push）"; Color = "Green"; Action = { Invoke-Publish } },
-        @{ Label = "新しい変更で区切る（jj new）"; Color = "DarkCyan"; Action = { Invoke-NewChange } },
-        @{ Label = "変更にコメントを付ける（desc）"; Color = "White"; Action = { Invoke-AddDescription } },
-        @{ Label = "変更履歴を閲覧（log）"; Color = "DarkCyan"; Action = { Invoke-ViewHistory } },
-        @{ Label = "直前の操作を取り消す（undo）"; Color = "Yellow"; Action = { Invoke-Undo } },
-        @{ Label = "コンフリクトを解決（local / remote）"; Color = "Red"; Action = { Invoke-ResolveConflicts } },
+        @{ Label = "変更を保存"; Color = "Green"; Action = { Invoke-Publish } },
+        @{ Label = "新しい変更で区切る"; Color = "DarkCyan"; Action = { Invoke-NewChange } },
+        @{ Label = "変更にコメントを付ける"; Color = "White"; Action = { Invoke-AddDescription } },
+        @{ Label = "変更履歴を閲覧"; Color = "DarkCyan"; Action = { Invoke-ViewHistory } },
+        @{ Label = "直前の操作を取り消す"; Color = "Yellow"; Action = { Invoke-Undo } },
+        @{ Label = "コンフリクトを解決"; Color = "Red"; Action = { Invoke-ResolveConflicts } },
         @{ Label = "保存済み設定を変更"; Color = "Yellow"; Action = { Invoke-ConfigChange } },
         @{ Label = "終了"; Color = "Gray"; Action = { return } }
     )
