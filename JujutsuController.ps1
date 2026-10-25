@@ -39,11 +39,8 @@ function Test-Update {
             Write-Host "  最新: $latestVersion" -ForegroundColor Green
             Write-Host ""
 
-            $open = Read-Host "最新版のページを開きますか？ [Y/n]"
-
             if (
-                [string]::IsNullOrWhiteSpace($open) -or
-                $open -match '^(?i)y(es)?$'
+                Read-YesNo -Prompt "最新版のページを開きますか？" -DefaultYes $true
             ) {
                 Start-Process $latestUrl
             }
@@ -74,9 +71,6 @@ function Write-StageProgress {
     )
 
     Write-Host "  $Activity - $Status" -ForegroundColor DarkCyan
-}
-
-function Clear-StageProgress {
 }
 
 function Invoke-RequiredCommand {
@@ -144,7 +138,6 @@ function Save-Config {
     )
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
     [System.IO.File]::WriteAllLines($script:ConfigPath, $lines, $utf8NoBom)
-    Write-Host "設定を保存しました: $script:ConfigPath" -ForegroundColor Green
 }
 
 function Save-ProjectDirectory {
@@ -270,8 +263,7 @@ function Set-SshSigningConfiguration {
         Write-Host "公開鍵のクリップボードへのコピーに失敗しました: $($_.Exception.Message)" -ForegroundColor Yellow
     }
     Write-Host "GitHubの SSH signing key 登録画面で公開鍵を登録してください。" -ForegroundColor Yellow
-    $openGitHub = Read-Host "GitHubの登録画面を開きますか？ [Y/n]"
-    if ([string]::IsNullOrWhiteSpace($openGitHub) -or $openGitHub -match '^(?i)y(es)?$') {
+    if (Read-YesNo -Prompt "GitHubの登録画面を開きますか？" -DefaultYes $true) {
         Start-Process "https://github.com/settings/keys"
     }
 }
@@ -299,9 +291,11 @@ function Read-SshSigningSettings {
         }
     }
 
-    $enable = Read-Host "SSH署名鍵を設定・変更しますか？ [y/N]"
-    if ($enable -notmatch '^(?i)y(es)?$') {
+    if (Read-YesNo -Prompt "SSH署名鍵を設定・変更しますか？" -DefaultYes $False) {
         return $currentKey
+    } else {
+        return ""
+        Write-Host "設定は行いませんでした。" -ForegroundColor Green
     }
 
     Write-Host "公開鍵の指定方法を選択してください。" -ForegroundColor Cyan
@@ -343,12 +337,9 @@ function Read-RepositorySettings {
     }
     Test-RepositoryUrl -RepositoryUrl $repositoryUrl
 
-    $saveDecision = Read-Host "このリポジトリURLを設定に保存しますか？ [Y/n/C]"
-    if ([string]::IsNullOrWhiteSpace($saveDecision) -or $saveDecision -match '^(?i)y(es)?$') {
+    if (Read-YesNo -Prompt "このリポジトリURLを設定に保存しますか？" -DefaultYes $true) {
         Save-Config -UserName $UserSettings.Name -UserEmail $UserSettings.Email -RepositoryUrl $repositoryUrl
-    }
-    elseif ($saveDecision -match '^(?i)c(ancel)?$') {
-        throw "リポジトリ選択をキャンセルしました。"
+        Write-Host "設定を保存しました: $script:ConfigPath" -ForegroundColor Green
     }
     else {
         Write-Host "リポジトリURLは保存せず、今回のセットアップだけで利用します。" -ForegroundColor Yellow
@@ -370,15 +361,26 @@ function Test-RepositoryUrl {
     }
 }
 
-function Read-SaveDecision {
-    $decision = Read-Host "設定を保存しますか？ [Y/n/C]"
-    if ([string]::IsNullOrWhiteSpace($decision) -or $decision -match '^(?i)y(es)?$') {
-        return "save"
+function Read-YesNo {
+    param(
+        [Parameter(Mandatory)] [string] $Prompt,
+        [Parameter()] [bool] $DefaultYes = $true
+    )
+
+    $defaultOption = if ($DefaultYes) { "Y/n" } else { "y/N" }
+    while ($true) {
+        $response = Read-Host "$Prompt [$defaultOption]"
+        if ([string]::IsNullOrWhiteSpace($response)) {
+            return $DefaultYes
+        }
+        if ($response -match '^(?i)y(es)?$') {
+            return $true
+        }
+        if ($response -match '^(?i)n(o)?$') {
+            return $false
+        }
+        Write-Host "有効な入力ではありません。Y または N を入力してください。" -ForegroundColor Yellow
     }
-    if ($decision -match '^(?i)c(ancel)?$') {
-        return "cancel"
-    }
-    return "skip"
 }
 
 function Read-UserSettings {
@@ -391,24 +393,20 @@ function Read-UserSettings {
         Write-Host "保存済みの設定が見つかりました。" -ForegroundColor Cyan
         Write-Host "  名前: $savedName" -ForegroundColor DarkGray
         Write-Host "  メール: $savedEmail" -ForegroundColor DarkGray
-        $useSavedSettings = Read-Host "この設定を利用しますか？ [Y/n]"
-        if ([string]::IsNullOrWhiteSpace($useSavedSettings) -or $useSavedSettings -match '^(?i)y(es)?$') {
+        if (Read-YesNo "この設定を利用しますか？" $true) {
             return @{ Name = $savedName; Email = $savedEmail }
         }
     }
-
+    
     $userName = Read-Host "Git ユーザー名"
     $userEmail = Read-Host "Git メールアドレス"
     if ([string]::IsNullOrWhiteSpace($userName) -or [string]::IsNullOrWhiteSpace($userEmail)) {
         throw "名前とメールアドレスは必須です。"
     }
 
-    $saveDecision = Read-SaveDecision
-    if ($saveDecision -eq "cancel") {
-        throw "設定の保存をキャンセルしました。"
-    }
-    if ($saveDecision -eq "save") {
+    if (Read-YesNo "設定を保存しますか？" $true) {
         Save-Config -UserName $userName -UserEmail $userEmail -RepositoryUrl (Get-RepositoryUrl)
+        Write-Host "設定を保存しました: $script:ConfigPath" -ForegroundColor Green
     }
     else {
         Write-Host "設定は保存せず、この処理でのみ利用します。" -ForegroundColor Yellow
@@ -503,6 +501,7 @@ function Invoke-ConfigChange {
         }
         Test-RepositoryUrl -RepositoryUrl $newRepositoryUrl
         Save-Config -UserName $newName -UserEmail $newEmail -RepositoryUrl $newRepositoryUrl
+        Write-Host "設定を保存しました: $script:ConfigPath" -ForegroundColor Green
     }
     catch {
         Write-Host "`nエラー: $($_.Exception.Message)" -ForegroundColor Red
@@ -632,13 +631,15 @@ function Invoke-Setup {
 
         Write-StageProgress 3 $total "JC セットアップ" "ユーザー設定とリポジトリを準備しています..."
         Initialize-Repository
-        Clear-StageProgress
+        
         Set-Content -LiteralPath $script:SetupMarkerPath -Value "completed" -Encoding utf8
         Write-Host "`nセットアップが完了しました。" -ForegroundColor Green
+        Write-Host ""
+        Read-Host "Enter キーを押して続行してください..."
         return $true
     }
     catch {
-        Clear-StageProgress
+        
         Write-Host "`nエラー: $($_.Exception.Message)" -ForegroundColor Red
         return $false
     }
@@ -652,13 +653,13 @@ function Invoke-Update {
 
         Write-StageProgress 2 2 "JC 更新" "最新の main に合わせています..."
         Invoke-RequiredCommand "jj" @("rebase", "-d", "main@origin")
-        Clear-StageProgress
+        
         Write-Host "`n更新が完了しました。`n" -ForegroundColor Green
         Write-Host "現在の状態:" -ForegroundColor Cyan
         & jj status
     }
     catch {
-        Clear-StageProgress
+        
         Write-Host "`nエラー: $($_.Exception.Message)" -ForegroundColor Red
         Write-Host "コンフリクトなどが発生している可能性があります。コンフリクトを解決してください。" -ForegroundColor Yellow
     }
@@ -731,20 +732,20 @@ function Invoke-BranchSwitch {
         Write-Host ""
         Write-Host "選択したブランチ: $branch" -ForegroundColor Cyan
         Write-Host "現在の作業変更をこのブランチ上の新しい変更へ切り替えます。" -ForegroundColor Yellow
-        $decision = Read-Host "実行しますか？ [y/N]"
-        if ($decision -notmatch '^(?i)y(es)?$') {
+        
+        if (Read-YesNo -Prompt "続行しますか？" -DefaultYes $False) {
             Write-Host "ブランチ切り替えをキャンセルしました。" -ForegroundColor Yellow
             return
         }
 
         Write-StageProgress 1 1 "ブランチ切り替え" "$branch に切り替えています..."
         Invoke-RequiredCommand "jj" @("new", $branch)
-        Clear-StageProgress
+        
         Write-Host "`nブランチを切り替えました: $branch" -ForegroundColor Green
         Write-Host "新しい作業変更で作業を開始できます。" -ForegroundColor DarkGray
     }
     catch {
-        Clear-StageProgress
+        
         Write-Host "`nエラー: $($_.Exception.Message)" -ForegroundColor Red
     }
 }
@@ -763,11 +764,11 @@ function Invoke-BranchCreate {
 
         Write-StageProgress 1 1 "ブランチ作成" "$branch を作成しています..."
         Invoke-RequiredCommand "jj" @("bookmark", "create", $branch, "-r", "@")
-        Clear-StageProgress
+        
         Write-Host "`nブランチを作成しました: $branch" -ForegroundColor Green
     }
     catch {
-        Clear-StageProgress
+        
         Write-Host "`nエラー: $($_.Exception.Message)" -ForegroundColor Red
     }
 }
@@ -792,19 +793,18 @@ function Invoke-BranchDelete {
         }
 
         Write-Host "削除対象: $branch" -ForegroundColor Yellow
-        $decision = Read-Host "このブランチを削除しますか？ [y/N]"
-        if ($decision -notmatch '^(?i)y(es)?$') {
+        if (Read-YesNo -Prompt "このブランチを削除しますか？" -DefaultYes $False) {
             Write-Host "ブランチ削除をキャンセルしました。" -ForegroundColor Yellow
             return
         }
 
         Write-StageProgress 1 1 "ブランチ削除" "$branch を削除しています..."
         Invoke-RequiredCommand "jj" @("bookmark", "delete", $branch)
-        Clear-StageProgress
+        
         Write-Host "`nブランチを削除しました: $branch" -ForegroundColor Green
     }
     catch {
-        Clear-StageProgress
+        
         Write-Host "`nエラー: $($_.Exception.Message)" -ForegroundColor Red
     }
 }
@@ -842,8 +842,7 @@ function Invoke-BranchMerge {
         }
 
         Write-Host "$source を $target にマージします。" -ForegroundColor Yellow
-        $decision = Read-Host "実行しますか？ [y/N]"
-        if ($decision -notmatch '^(?i)y(es)?$') {
+        if (Read-YesNo -Prompt "実行しますか？" -DefaultYes $False) {
             Write-Host "ブランチマージをキャンセルしました。" -ForegroundColor Yellow
             return
         }
@@ -852,12 +851,12 @@ function Invoke-BranchMerge {
         Invoke-RequiredCommand "jj" @("new", $target, $source)
         Write-StageProgress 2 2 "ブランチマージ" "$target をマージ結果へ更新しています..."
         Invoke-RequiredCommand "jj" @("bookmark", "set", $target, "-r", "@")
-        Clear-StageProgress
+        
         Write-Host "`nブランチをマージしました: $source -> $target" -ForegroundColor Green
         Write-Host "必要に応じて「変更を保存」から push してください。" -ForegroundColor DarkGray
     }
     catch {
-        Clear-StageProgress
+        
         Write-Host "`nエラー: $($_.Exception.Message)" -ForegroundColor Red
     }
 }
@@ -919,8 +918,8 @@ function Invoke-Publish {
         if (-not [string]::IsNullOrWhiteSpace($existingComment)) {
             Write-Host "現在のコメント:" -ForegroundColor Cyan
             Write-Host $existingComment -ForegroundColor DarkGray
-            $reuseComment = Read-Host "このコメントを利用しますか？ [Y/n]"
-            if ([string]::IsNullOrWhiteSpace($reuseComment) -or $reuseComment -match '^(Y|y)$') {
+
+            if ( Read-YesNo -Prompt "このコメントを利用しますか？" -DefaultYes $true) {
                 $comment = $existingComment
             }
             else {
@@ -934,7 +933,7 @@ function Invoke-Publish {
         }
 
         if ([string]::IsNullOrWhiteSpace($comment)) {
-            Clear-StageProgress
+            
             Write-Host "`n保存をキャンセルしました。" -ForegroundColor Yellow
             return
         }
@@ -947,12 +946,12 @@ function Invoke-Publish {
 
         Write-StageProgress 4 4 "JC 保存" "サーバーへアップロードしています..."
         Invoke-RequiredCommand "jj" @("git", "push")
-        Clear-StageProgress
+        
         Write-Host "`nアップロードが完了しました。" -ForegroundColor Green
         Write-Host "コメント: $comment" -ForegroundColor DarkGray
     }
     catch {
-        Clear-StageProgress
+        
         Write-Host "`nエラー: $($_.Exception.Message)" -ForegroundColor Red
     }
 }
@@ -963,18 +962,55 @@ function Invoke-NewChange {
         Write-Host "新しい変更のコメントを入力してください。（空白でキャンセル）" -ForegroundColor Cyan
         $comment = Read-Host "変更コメント"
         if ([string]::IsNullOrWhiteSpace($comment)) {
-            Clear-StageProgress
+            
             Write-Host "`n変更をキャンセルしました。" -ForegroundColor Yellow
             return
         }
         Write-StageProgress 1 1 "JC 区切り" "新しい変更を作成しています..."
         Invoke-RequiredCommand "jj" @("new", "-m", $comment)
-        Clear-StageProgress
+        
         Write-Host "`n新しい変更を作成しました。" -ForegroundColor Green
     }
     catch {
-        Clear-StageProgress
+        
         Write-Host "`nエラー: $($_.Exception.Message)" -ForegroundColor Red
+    }
+}
+
+function Invoke-ChangeDescriptionMenu {
+    $items = @(
+        @{ Label = "新しい変更で区切る"; Color = "DarkCyan"; Action = { Invoke-NewChange } },
+        @{ Label = "既存の変更にコメントを付ける"; Color = "White"; Action = { Invoke-AddDescription } },
+        @{ Label = "変更履歴を閲覧"; Color = "DarkCyan"; Action = { Invoke-ViewHistory } },
+        @{ Label = "戻る"; Color = "Gray"; Action = { return } }
+    )
+    $selected = 0
+
+    while ($true) {
+        Write-Header
+        Write-Host "  変更の区切り・コメント設定" -ForegroundColor White
+        Write-Host ""
+        for ($index = 0; $index -lt $items.Count; $index++) {
+            if ($index -eq $selected) {
+                Write-Host "  > $($items[$index].Label)" -ForegroundColor $items[$index].Color -BackgroundColor DarkGray
+            }
+            else {
+                Write-Host "    $($items[$index].Label)" -ForegroundColor $items[$index].Color
+            }
+        }
+
+        $key = [Console]::ReadKey($true)
+        switch ($key.Key) {
+            "UpArrow" { $selected = ($selected - 1 + $items.Count) % $items.Count }
+            "DownArrow" { $selected = ($selected + 1) % $items.Count }
+            "Escape" { return }
+            "Enter" {
+                if ($selected -eq ($items.Count - 1)) { return }
+                & $items[$selected].Action
+                Write-Host ""
+                Read-Host "Enter でメニューに戻ります"
+            }
+        }
     }
 }
 
@@ -1052,13 +1088,13 @@ function Invoke-AddDescription {
 
             Write-StageProgress 1 1 "コメント設定" "変更コメントを設定しています..."
             Invoke-RequiredCommand "jj" @("desc", "-r", $candidates[$selectedIndex].ChangeId, "-m", $comment)
-            Clear-StageProgress
+            
             Write-Host "`nコメントを設定しました。" -ForegroundColor Green
             Write-Host "続けて別の変更にもコメントを設定できます。" -ForegroundColor DarkCyan
         }
     }
     catch {
-        Clear-StageProgress
+        
         Write-Host "`nエラー: $($_.Exception.Message)" -ForegroundColor Red
     }
 }
@@ -1067,19 +1103,19 @@ function Invoke-Undo {
     Write-Header
     try {
         Write-Host "直前の操作を取り消します。" -ForegroundColor Yellow
-        $decision = Read-Host "実行しますか？ [y/N]"
-        if ($decision -notmatch '^(?i)y(es)?$') {
+        
+        if (Read-YesNo -Prompt "取り消しますか？" -DefaultYes $False) {
             Write-Host "取り消しをキャンセルしました。" -ForegroundColor Yellow
             return
         }
 
         Write-StageProgress 1 1 "JC Undo" "直前の操作を取り消しています..."
         Invoke-RequiredCommand "jj" @("undo")
-        Clear-StageProgress
+        
         Write-Host "`n直前の操作を取り消しました。" -ForegroundColor Green
     }
     catch {
-        Clear-StageProgress
+        
         Write-Host "`nエラー: $($_.Exception.Message)" -ForegroundColor Red
     }
 }
@@ -1166,11 +1202,11 @@ function Invoke-ResolveConflicts {
 
         Write-StageProgress 1 1 "コンフリクト解決" "$side を優先しています..."
         Invoke-RequiredCommand "jj" @("resolve", "--tool", $tool, "--", $conflictPath)
-        Clear-StageProgress
+        
         Write-Host "`nコンフリクトを解決しました: $conflictPath" -ForegroundColor Green
     }
     catch {
-        Clear-StageProgress
+        
         Write-Host "`nエラー: $($_.Exception.Message)" -ForegroundColor Red
     }
 }
@@ -1193,7 +1229,7 @@ function Invoke-ReviewChanges {
             }
         }
 
-        Clear-StageProgress
+        
         if ($changedFiles.Count -eq 0) {
             Write-Header
             Write-Host "  変更されたファイルはありません。" -ForegroundColor Green
@@ -1203,7 +1239,7 @@ function Invoke-ReviewChanges {
         Read-ChangedFileChoice -ChangedFiles $changedFiles
     }
     catch {
-        Clear-StageProgress
+        
         Write-Host "`nエラー: $($_.Exception.Message)" -ForegroundColor Red
     }
 }
@@ -1289,13 +1325,11 @@ function Show-FileDiff {
 
 function Read-MenuChoice {
     $items = @(
-        @{ Label = "変更を確認"; Color = "Cyan"; Action = { Invoke-ReviewChanges } },
         @{ Label = "最新の情報を取得"; Color = "Blue"; Action = { Invoke-Update } },
-        @{ Label = "ブランチ操作（切り替え / 作成 / マージ / 削除）"; Color = "Magenta"; Action = { Invoke-BranchManagement } },
         @{ Label = "変更を保存"; Color = "Green"; Action = { Invoke-Publish } },
-        @{ Label = "新しい変更で区切る"; Color = "DarkCyan"; Action = { Invoke-NewChange } },
-        @{ Label = "変更にコメントを付ける"; Color = "White"; Action = { Invoke-AddDescription } },
-        @{ Label = "変更履歴を閲覧"; Color = "DarkCyan"; Action = { Invoke-ViewHistory } },
+        @{ Label = "変更を確認"; Color = "Cyan"; Action = { Invoke-ReviewChanges } },
+        @{ Label = "変更を区切る / コメントを付け / 変更履歴"; Color = "DarkCyan"; Action = { Invoke-ChangeDescriptionMenu } },
+        @{ Label = "ブランチ操作（切り替え / 作成 / マージ / 削除）"; Color = "Magenta"; Action = { Invoke-BranchManagement } },
         @{ Label = "直前の操作を取り消す"; Color = "Yellow"; Action = { Invoke-Undo } },
         @{ Label = "コンフリクトを解決"; Color = "Red"; Action = { Invoke-ResolveConflicts } },
         @{ Label = "保存済み設定を変更"; Color = "Yellow"; Action = { Invoke-ConfigChange } },
