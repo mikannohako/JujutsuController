@@ -6,7 +6,7 @@ $ErrorActionPreference = "Stop"
 $script:DefaultRepositoryUrl = "https://github.com/mikannohako/JujutsuController.git"
 $script:ConfigPath = Join-Path $PSScriptRoot "config.ini"
 $script:SetupMarkerPath = Join-Path $PSScriptRoot ".setup-completed"
-$script:ControllerVersion = "4.0.0"
+$script:ControllerVersion = "4.1.1"
 $Host.UI.RawUI.WindowTitle = "JujutsuController"
 
 function Get-LatestRelease {
@@ -15,11 +15,11 @@ function Get-LatestRelease {
         -Headers @{ "User-Agent" = "JujutsuController" }
 
     if ($null -eq $release) {
-        throw "GitHub APIからリリース情報を取得できませんでした。"
+        throw "GitHub APIからリリース惁E��を取得できませんでした、E
     }
 
     if ([string]::IsNullOrWhiteSpace([string]$release.tag_name)) {
-        throw "最新リリースのバージョン情報が取得できませんでした。"
+        throw "最新リリースのバ�Eジョン惁E��が取得できませんでした、E
     }
 
     return $release
@@ -34,13 +34,13 @@ function Test-Update {
 
         if ([version]$latestVersion -gt [version]$script:ControllerVersion) {
             Write-Host ""
-            Write-Host "新しいJujutsuControllerがあります。" -ForegroundColor Yellow
+            Write-Host "新しいJujutsuControllerがあります、E -ForegroundColor Yellow
             Write-Host "  現在: $script:ControllerVersion" -ForegroundColor Gray
             Write-Host "  最新: $latestVersion" -ForegroundColor Green
             Write-Host ""
 
             if (
-                Read-YesNo -Prompt "最新版のページを開きますか？" -DefaultYes $true
+                Read-YesNo -Prompt "最新版�Eペ�Eジを開きますか�E�E -DefaultYes $true
             ) {
                 Start-Process $latestUrl
             }
@@ -172,7 +172,7 @@ function Get-ProjectDirectory {
     $config = Read-Config
     $projectDirectory = [string] $config["project_directory"]
     if ([string]::IsNullOrWhiteSpace($projectDirectory)) {
-        throw "セットアップ先のプロジェクトフォルダが設定されていません。セットアップを再実行してください。"
+        throw "セチE��アチE�E先�Eプロジェクトフォルダが設定されてぁE��せん。セチE��アチE�Eを�E実行してください、E
     }
     if (-not (Test-Path -LiteralPath $projectDirectory -PathType Container)) {
         throw "保存済みのプロジェクトフォルダが見つかりません: $projectDirectory"
@@ -213,10 +213,10 @@ function Test-SshSigningKey {
     $normalizedKey = ($PublicKey -replace "`r`n", "`n").Trim()
     $keyLines = @($normalizedKey -split "`n" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
     if ($keyLines.Count -ne 1) {
-        throw "SSH公開鍵は1行で入力してください。秘密鍵の内容は指定しないでください。"
+        throw "SSH公開鍵は1行で入力してください。秘寁E��の冁E��は持E��しなぁE��ください、E
     }
     if ($keyLines[0] -notmatch '^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp(256|384|521))\s+\S+(?:\s+.*)?$') {
-        throw "SSH公開鍵の形式を確認できません。ssh-ed25519、ssh-rsa、またはECDSA公開鍵を指定してください。"
+        throw "SSH公開鍵の形式を確認できません。ssh-ed25519、ssh-rsa、また�EECDSA公開鍵を指定してください、E
     }
     return $keyLines[0].Trim()
 }
@@ -257,13 +257,13 @@ function Set-SshSigningConfiguration {
 
     try {
         Set-Clipboard -Value $normalizedKey
-        Write-Host "公開鍵をクリップボードへコピーしました。" -ForegroundColor Green
+        Write-Host "公開鍵をクリチE�Eボ�Eドへコピ�Eしました、E -ForegroundColor Green
     }
     catch {
-        Write-Host "公開鍵のクリップボードへのコピーに失敗しました: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "公開鍵のクリチE�Eボ�Eドへのコピ�Eに失敗しました: $($_.Exception.Message)" -ForegroundColor Yellow
     }
-    Write-Host "GitHubの SSH signing key 登録画面で公開鍵を登録してください。" -ForegroundColor Yellow
-    if (Read-YesNo -Prompt "GitHubの登録画面を開きますか？" -DefaultYes $true) {
+    Write-Host "GitHubの SSH signing key 登録画面で公開鍵を登録してください、E -ForegroundColor Yellow
+    if (Read-YesNo -Prompt "GitHubの登録画面を開きますか�E�E -DefaultYes $true) {
         Start-Process "https://github.com/settings/keys"
     }
 }
@@ -279,7 +279,7 @@ function Read-SshSigningSettings {
     if (-not [string]::IsNullOrWhiteSpace($currentKey)) {
         Write-Host ""
         Write-Host "保存済みのSSH署名鍵: $currentKey" -ForegroundColor Cyan
-        $decision = Read-Host "このSSH署名鍵を利用しますか？ [Y/n/D(解除)]"
+        $decision = Read-Host "こ�ESSH署名鍵を利用しますか�E�E[Y/n/D(解除)]"
         if ([string]::IsNullOrWhiteSpace($decision) -or $decision -match '^(?i)y(es)?$') {
             $normalizedKey = Test-SshSigningKey -PublicKey $currentKey
             Set-SshSigningConfiguration -PublicKey $normalizedKey
@@ -291,21 +291,21 @@ function Read-SshSigningSettings {
         }
     }
 
-    if (Read-YesNo -Prompt "SSH署名鍵を設定・変更しますか？" -DefaultYes $False) {
+    if (Read-YesNo -Prompt "SSH署名鍵を設定�E変更しますか�E�E -DefaultYes $False) {
         return $currentKey
     } else {
         return ""
-        Write-Host "設定は行いませんでした。" -ForegroundColor Green
+        Write-Host "設定�E行いませんでした、E -ForegroundColor Green
     }
 
-    Write-Host "公開鍵の指定方法を選択してください。" -ForegroundColor Cyan
+    Write-Host "公開鍵の持E��方法を選択してください、E -ForegroundColor Cyan
     Write-Host "  F: 公開鍵ファイルを読み込む"
-    Write-Host "  T: 公開鍵を文章で入力する"
-    $inputMethod = Read-Host "指定方法 [F/T]"
+    Write-Host "  T: 公開鍵を文章で入力すめE
+    $inputMethod = Read-Host "持E��方況E[F/T]"
     if ($inputMethod -match '^(?i)f(ile)?$') {
         $keyPath = Read-Host "SSH公開鍵ファイルのパス"
         if ([string]::IsNullOrWhiteSpace($keyPath)) {
-            throw "SSH公開鍵ファイルのパスが入力されていません。"
+            throw "SSH公開鍵ファイルのパスが�E力されてぁE��せん、E
         }
         $resolvedPath = [System.IO.Path]::GetFullPath($keyPath.Trim().Trim('"'))
         if (-not (Test-Path -LiteralPath $resolvedPath -PathType Leaf)) {
@@ -314,10 +314,10 @@ function Read-SshSigningSettings {
         $inputKey = [System.IO.File]::ReadAllText($resolvedPath)
     }
     elseif ($inputMethod -match '^(?i)t(ext)?$') {
-        $inputKey = Read-Host "SSH公開鍵を1行で入力してください"
+        $inputKey = Read-Host "SSH公開鍵めE行で入力してください"
     }
     else {
-        throw "公開鍵の指定方法は F または T です。"
+        throw "公開鍵の持E��方法�E F また�E T です、E
     }
 
     $normalizedKey = Test-SshSigningKey -PublicKey $inputKey
@@ -330,19 +330,19 @@ function Read-RepositorySettings {
 
     $currentRepositoryUrl = Get-RepositoryUrl
     Write-Host ""
-    Write-Host "cloneするリポジトリを選択してください。" -ForegroundColor Cyan
+    Write-Host "cloneするリポジトリを選択してください、E -ForegroundColor Cyan
     $repositoryUrl = Read-Host "リポジトリURL [$currentRepositoryUrl]"
     if ([string]::IsNullOrWhiteSpace($repositoryUrl)) {
         $repositoryUrl = $currentRepositoryUrl
     }
     Test-RepositoryUrl -RepositoryUrl $repositoryUrl
 
-    if (Read-YesNo -Prompt "このリポジトリURLを設定に保存しますか？" -DefaultYes $true) {
+    if (Read-YesNo -Prompt "こ�EリポジトリURLを設定に保存しますか�E�E -DefaultYes $true) {
         Save-Config -UserName $UserSettings.Name -UserEmail $UserSettings.Email -RepositoryUrl $repositoryUrl
         Write-Host "設定を保存しました: $script:ConfigPath" -ForegroundColor Green
     }
     else {
-        Write-Host "リポジトリURLは保存せず、今回のセットアップだけで利用します。" -ForegroundColor Yellow
+        Write-Host "リポジトリURLは保存せず、今回のセチE��アチE�Eだけで利用します、E -ForegroundColor Yellow
     }
 
     return $repositoryUrl
@@ -357,7 +357,7 @@ function Test-RepositoryUrl {
 
     $uri = $null
     if (-not [Uri]::TryCreate($RepositoryUrl, [UriKind]::Absolute, [ref] $uri) -or $uri.Scheme -notin @("http", "https", "ssh", "git")) {
-        throw "リポジトリURLが正しくありません。"
+        throw "リポジトリURLが正しくありません、E
     }
 }
 
@@ -379,7 +379,7 @@ function Read-YesNo {
         if ($response -match '^(?i)n(o)?$') {
             return $false
         }
-        Write-Host "有効な入力ではありません。Y または N を入力してください。" -ForegroundColor Yellow
+        Write-Host "有効な入力ではありません、E また�E N を�E力してください、E -ForegroundColor Yellow
     }
 }
 
@@ -390,26 +390,26 @@ function Read-UserSettings {
     $hasSavedSettings = -not [string]::IsNullOrWhiteSpace($savedName) -and -not [string]::IsNullOrWhiteSpace($savedEmail)
 
     if ($hasSavedSettings) {
-        Write-Host "保存済みの設定が見つかりました。" -ForegroundColor Cyan
+        Write-Host "保存済みの設定が見つかりました、E -ForegroundColor Cyan
         Write-Host "  名前: $savedName" -ForegroundColor DarkGray
         Write-Host "  メール: $savedEmail" -ForegroundColor DarkGray
-        if (Read-YesNo "この設定を利用しますか？" $true) {
+        if (Read-YesNo "こ�E設定を利用しますか�E�E $true) {
             return @{ Name = $savedName; Email = $savedEmail }
         }
     }
     
-    $userName = Read-Host "Git ユーザー名"
+    $userName = Read-Host "Git ユーザー吁E
     $userEmail = Read-Host "Git メールアドレス"
     if ([string]::IsNullOrWhiteSpace($userName) -or [string]::IsNullOrWhiteSpace($userEmail)) {
-        throw "名前とメールアドレスは必須です。"
+        throw "名前とメールアドレスは忁E��です、E
     }
 
-    if (Read-YesNo "設定を保存しますか？" $true) {
+    if (Read-YesNo "設定を保存しますか�E�E $true) {
         Save-Config -UserName $userName -UserEmail $userEmail -RepositoryUrl (Get-RepositoryUrl)
         Write-Host "設定を保存しました: $script:ConfigPath" -ForegroundColor Green
     }
     else {
-        Write-Host "設定は保存せず、この処理でのみ利用します。" -ForegroundColor Yellow
+        Write-Host "設定�E保存せず、この処琁E��のみ利用します、E -ForegroundColor Yellow
     }
     return @{ Name = $userName; Email = $userEmail }
 }
@@ -422,10 +422,10 @@ function Invoke-ConfigChange {
         $currentEmail = [string] $config["email"]
         $currentRepositoryUrl = Get-RepositoryUrl
         $currentSshSigningKey = [string] $config["ssh_signing_key"]
-        $sshSigningLabel = if ([string]::IsNullOrWhiteSpace($currentSshSigningKey)) { "未設定" } else { $currentSshSigningKey }
+        $sshSigningLabel = if ([string]::IsNullOrWhiteSpace($currentSshSigningKey)) { "未設宁E } else { $currentSshSigningKey }
 
         $settings = @(
-            [PSCustomObject]@{ Label = "Git ユーザー名"; Key = "name"; Value = $currentName },
+            [PSCustomObject]@{ Label = "Git ユーザー吁E; Key = "name"; Value = $currentName },
             [PSCustomObject]@{ Label = "Git メールアドレス"; Key = "email"; Value = $currentEmail },
             [PSCustomObject]@{ Label = "リポジトリURL"; Key = "repository_url"; Value = $currentRepositoryUrl },
             [PSCustomObject]@{ Label = "SSH署名鍵"; Key = "ssh_signing_key"; Value = $sshSigningLabel }
@@ -434,8 +434,8 @@ function Invoke-ConfigChange {
         $itemCount = $settings.Count + 1
         while ($true) {
             Write-Header
-            Write-Host "  変更する設定を選択してください。" -ForegroundColor Cyan
-            Write-Host "  上下:選択  Enter:決定  Esc:キャンセル" -ForegroundColor DarkCyan
+            Write-Host "  変更する設定を選択してください、E -ForegroundColor Cyan
+            Write-Host "  上丁E選抁E Enter:決宁E Esc:キャンセル" -ForegroundColor DarkCyan
             Write-Host ""
             for ($index = 0; $index -lt $settings.Count; $index++) {
                 $line = "$($settings[$index].Label): $($settings[$index].Value)"
@@ -466,7 +466,7 @@ function Invoke-ConfigChange {
         }
 
         if ($selected -eq $settings.Count) {
-            Write-Host "設定変更をキャンセルしました。" -ForegroundColor Yellow
+            Write-Host "設定変更をキャンセルしました、E -ForegroundColor Yellow
             return
         }
 
@@ -478,13 +478,13 @@ function Invoke-ConfigChange {
                 -UserEmail $currentEmail `
                 -RepositoryUrl $currentRepositoryUrl `
                 -SshSigningKey $newSshSigningKey
-            Write-Host "SSH署名鍵の設定を更新しました。" -ForegroundColor Green
+            Write-Host "SSH署名鍵の設定を更新しました、E -ForegroundColor Green
             return
         }
 
         $newValue = Read-Host "$($setting.Label) [$($setting.Value)]"
         if ([string]::IsNullOrWhiteSpace($newValue)) {
-            Write-Host "設定変更をキャンセルしました。" -ForegroundColor Yellow
+            Write-Host "設定変更をキャンセルしました、E -ForegroundColor Yellow
             return
         }
 
@@ -497,7 +497,7 @@ function Invoke-ConfigChange {
             "repository_url" { $newRepositoryUrl = $newValue }
         }
         if ([string]::IsNullOrWhiteSpace($newName) -or [string]::IsNullOrWhiteSpace($newEmail)) {
-            throw "名前とメールアドレスは必須です。"
+            throw "名前とメールアドレスは忁E��です、E
         }
         Test-RepositoryUrl -RepositoryUrl $newRepositoryUrl
         Save-Config -UserName $newName -UserEmail $newEmail -RepositoryUrl $newRepositoryUrl
@@ -516,46 +516,46 @@ function Update-ProcessPath {
     }
 
     $env:Path = ($pathEntries | Select-Object -Unique) -join ';'
-    Write-Host "PATH を再読み込みしました。" -ForegroundColor Green
+    Write-Host "PATH を�E読み込みしました、E -ForegroundColor Green
 }
 
 function Install-RequiredTools {
     if (-not (Test-CommandAvailable "winget")) {
-        throw "winget が見つかりません。Windows App Installer をインストールしてください。"
+        throw "winget が見つかりません。Windows App Installer をインスト�Eルしてください、E
     }
 
-    Write-Host "winget を確認しました。" -ForegroundColor Green
+    Write-Host "winget を確認しました、E -ForegroundColor Green
 
     if (-not (Test-CommandAvailable "git")) {
-        Write-Host "Git をインストールしています..." -ForegroundColor Yellow
+        Write-Host "Git をインスト�EルしてぁE��ぁE.." -ForegroundColor Yellow
         Invoke-RequiredCommand "winget" @("install", "--id", "Git.Git", "--exact", "--source", "winget")
-        Write-Host "Git のインストールが完了しました。" -ForegroundColor Green
+        Write-Host "Git のインスト�Eルが完亁E��ました、E -ForegroundColor Green
     }
     else {
-        Write-Host "Git はインストール済みです。" -ForegroundColor DarkGray
+        Write-Host "Git はインスト�Eル済みです、E -ForegroundColor DarkGray
     }
 
     if (-not (Test-CommandAvailable "jj")) {
-        Write-Host "Jujutsu (jj) をインストールしています..." -ForegroundColor Yellow
+        Write-Host "Jujutsu (jj) をインスト�EルしてぁE��ぁE.." -ForegroundColor Yellow
         Invoke-RequiredCommand "winget" @("install", "--id", "jj-vcs.jj", "--exact", "--source", "winget")
-        Write-Host "jj のインストールが完了しました。" -ForegroundColor Green
+        Write-Host "jj のインスト�Eルが完亁E��ました、E -ForegroundColor Green
     }
     else {
-        Write-Host "jj はインストール済みです。" -ForegroundColor DarkGray
+        Write-Host "jj はインスト�Eル済みです、E -ForegroundColor DarkGray
     }
 
     Update-ProcessPath
 }
 
 function Select-ProjectDirectory {
-    $projectName = Read-Host "プロジェクトフォルダ名"
+    $projectName = Read-Host "プロジェクトフォルダ吁E
     if ([string]::IsNullOrWhiteSpace($projectName)) {
-        throw "プロジェクトフォルダ名が入力されていません。"
+        throw "プロジェクトフォルダ名が入力されてぁE��せん、E
     }
 
     $invalidCharacters = [System.IO.Path]::GetInvalidFileNameChars()
     if ($projectName.IndexOfAny($invalidCharacters) -ge 0 -or $projectName -in @('.', '..')) {
-        throw "プロジェクトフォルダ名に使用できない文字が含まれています。"
+        throw "プロジェクトフォルダ名に使用できなぁE��字が含まれてぁE��す、E
     }
 
     $defaultParentDirectory = [Environment]::GetFolderPath("Desktop")
@@ -571,13 +571,13 @@ function Select-ProjectDirectory {
     $projectDirectory = Join-Path (Resolve-Path -LiteralPath $parentDirectory).Path $projectName
     if (Test-Path $projectDirectory) {
         if (-not (Test-Path $projectDirectory -PathType Container)) {
-            throw "同名のファイルが既に存在します: $projectDirectory"
+            throw "同名のファイルが既に存在しまぁE $projectDirectory"
         }
         $hasRepository = Test-Path -LiteralPath (Join-Path $projectDirectory ".jj")
         $hasGitRepository = Test-Path -LiteralPath (Join-Path $projectDirectory ".git")
         $hasExistingFiles = @(Get-ChildItem -LiteralPath $projectDirectory -Force).Count -gt 0
         if ($hasExistingFiles -and -not ($hasRepository -or $hasGitRepository)) {
-            throw "選択した場所に既存のファイルがあります: $projectDirectory"
+            throw "選択した場所に既存�EファイルがありまぁE $projectDirectory"
         }
     }
 
@@ -605,35 +605,35 @@ function Initialize-Repository {
     $hasRepository = Test-Path -LiteralPath (Join-Path $projectDirectory ".jj")
     $hasGitRepository = Test-Path -LiteralPath (Join-Path $projectDirectory ".git")
     if ($hasRepository -or $hasGitRepository) {
-        Write-Host "既存のリポジトリを使用します..." -ForegroundColor Yellow
+        Write-Host "既存�Eリポジトリを使用しまぁE.." -ForegroundColor Yellow
     }
     else {
-        Write-Host "リポジトリを取得しています..." -ForegroundColor Yellow
+        Write-Host "リポジトリを取得してぁE��ぁE.." -ForegroundColor Yellow
         Invoke-RequiredCommand "jj" @("git", "clone", $repositoryUrl, ".")
     }
     Save-ProjectDirectory -ProjectDirectory $projectDirectory
     explorer.exe $projectDirectory
 
-    Write-Host "セットアップ先: $projectDirectory" -ForegroundColor Green
+    Write-Host "セチE��アチE�E允E $projectDirectory" -ForegroundColor Green
 }
 
 function Invoke-Setup {
     Write-Header
     $total = 3
     try {
-        Write-StageProgress 1 $total "JC セットアップ" "必要なツールを確認しています..."
+        Write-StageProgress 1 $total "JC セチE��アチE�E" "忁E��なチE�Eルを確認してぁE��ぁE.."
         Install-RequiredTools
 
-        Write-StageProgress 2 $total "JC セットアップ" "リポジトリ設定を準備しています..."
+        Write-StageProgress 2 $total "JC セチE��アチE�E" "リポジトリ設定を準備してぁE��ぁE.."
         if (-not (Test-CommandAvailable "jj")) {
-            throw "PATH 再読み込み後も jj が見つかりません。新しい PowerShell で再実行してください。"
+            throw "PATH 再読み込み後も jj が見つかりません。新しい PowerShell で再実行してください、E
         }
 
-        Write-StageProgress 3 $total "JC セットアップ" "ユーザー設定とリポジトリを準備しています..."
+        Write-StageProgress 3 $total "JC セチE��アチE�E" "ユーザー設定とリポジトリを準備してぁE��ぁE.."
         Initialize-Repository
         
         Set-Content -LiteralPath $script:SetupMarkerPath -Value "completed" -Encoding utf8
-        Write-Host "`nセットアップが完了しました。" -ForegroundColor Green
+        Write-Host "`nセチE��アチE�Eが完亁E��ました、E -ForegroundColor Green
         Write-Host ""
         Read-Host "Enter キーを押して続行してください..."
         return $true
@@ -648,20 +648,20 @@ function Invoke-Setup {
 function Invoke-Update {
     Write-Header
     try {
-        Write-StageProgress 1 2 "JC 更新" "サーバーから最新情報を取得しています..."
+        Write-StageProgress 1 2 "JC 更新" "サーバ�Eから最新惁E��を取得してぁE��ぁE.."
         Invoke-RequiredCommand "jj" @("git", "fetch")
 
-        Write-StageProgress 2 2 "JC 更新" "最新の main に合わせています..."
+        Write-StageProgress 2 2 "JC 更新" "最新の main に合わせてぁE��ぁE.."
         Invoke-RequiredCommand "jj" @("rebase", "-d", "main@origin")
         
-        Write-Host "`n更新が完了しました。`n" -ForegroundColor Green
-        Write-Host "現在の状態:" -ForegroundColor Cyan
+        Write-Host "`n更新が完亁E��ました。`n" -ForegroundColor Green
+        Write-Host "現在の状慁E" -ForegroundColor Cyan
         & jj status
     }
     catch {
         
         Write-Host "`nエラー: $($_.Exception.Message)" -ForegroundColor Red
-        Write-Host "コンフリクトなどが発生している可能性があります。コンフリクトを解決してください。" -ForegroundColor Yellow
+        Write-Host "コンフリクトなどが発生してぁE��可能性があります。コンフリクトを解決してください、E -ForegroundColor Yellow
     }
 }
 
@@ -686,7 +686,7 @@ function Invoke-BranchSwitch {
     try {
         $branches = @(Get-Branches)
         if ($branches.Count -eq 0) {
-            Write-Host "切り替え可能なブランチがありません。" -ForegroundColor Yellow
+            Write-Host "刁E��替え可能なブランチがありません、E -ForegroundColor Yellow
             return
         }
 
@@ -694,8 +694,8 @@ function Invoke-BranchSwitch {
         $selected = 0
         while ($true) {
             Write-Header
-            Write-Host "  切り替えるブランチを選択してください。" -ForegroundColor Cyan
-            Write-Host "  上下:選択  Enter:決定  Esc:キャンセル" -ForegroundColor DarkCyan
+            Write-Host "  刁E��替えるブランチを選択してください、E -ForegroundColor Cyan
+            Write-Host "  上丁E選抁E Enter:決宁E Esc:キャンセル" -ForegroundColor DarkCyan
             Write-Host ""
             for ($index = 0; $index -lt $branches.Count; $index++) {
                 if ($index -eq $selected) {
@@ -730,19 +730,19 @@ function Invoke-BranchSwitch {
 
         $branch = $branches[$selected]
         Write-Host ""
-        Write-Host "選択したブランチ: $branch" -ForegroundColor Cyan
-        Write-Host "現在の作業変更をこのブランチ上の新しい変更へ切り替えます。" -ForegroundColor Yellow
+        Write-Host "選択したブランチE $branch" -ForegroundColor Cyan
+        Write-Host "現在の作業変更をこのブランチ上�E新しい変更へ刁E��替えます、E -ForegroundColor Yellow
         
-        if (Read-YesNo -Prompt "続行しますか？" -DefaultYes $False) {
-            Write-Host "ブランチ切り替えをキャンセルしました。" -ForegroundColor Yellow
+        if (Read-YesNo -Prompt "続行しますか�E�E -DefaultYes $False) {
+            Write-Host "ブランチ�Eり替えをキャンセルしました、E -ForegroundColor Yellow
             return
         }
 
-        Write-StageProgress 1 1 "ブランチ切り替え" "$branch に切り替えています..."
+        Write-StageProgress 1 1 "ブランチ�Eり替ぁE "$branch に刁E��替えてぁE��ぁE.."
         Invoke-RequiredCommand "jj" @("new", $branch)
         
-        Write-Host "`nブランチを切り替えました: $branch" -ForegroundColor Green
-        Write-Host "新しい作業変更で作業を開始できます。" -ForegroundColor DarkGray
+        Write-Host "`nブランチを刁E��替えました: $branch" -ForegroundColor Green
+        Write-Host "新しい作業変更で作業を開始できます、E -ForegroundColor DarkGray
     }
     catch {
         
@@ -753,19 +753,19 @@ function Invoke-BranchSwitch {
 function Invoke-BranchCreate {
     Write-Header
     try {
-        $branch = Read-Host "作成するブランチ名（空白でキャンセル）"
+        $branch = Read-Host "作�Eするブランチ名�E�空白でキャンセル�E�E
         if ([string]::IsNullOrWhiteSpace($branch)) {
-            Write-Host "ブランチ作成をキャンセルしました。" -ForegroundColor Yellow
+            Write-Host "ブランチ作�Eをキャンセルしました、E -ForegroundColor Yellow
             return
         }
         if ($branch -notmatch '^[A-Za-z0-9._/-]+$') {
-            throw "ブランチ名に使用できない文字が含まれています。"
+            throw "ブランチ名に使用できなぁE��字が含まれてぁE��す、E
         }
 
-        Write-StageProgress 1 1 "ブランチ作成" "$branch を作成しています..."
+        Write-StageProgress 1 1 "ブランチ作�E" "$branch を作�EしてぁE��ぁE.."
         Invoke-RequiredCommand "jj" @("bookmark", "create", $branch, "-r", "@")
         
-        Write-Host "`nブランチを作成しました: $branch" -ForegroundColor Green
+        Write-Host "`nブランチを作�Eしました: $branch" -ForegroundColor Green
     }
     catch {
         
@@ -778,27 +778,27 @@ function Invoke-BranchDelete {
     try {
         $branches = @(Get-Branches)
         if ($branches.Count -eq 0) {
-            Write-Host "削除できるブランチがありません。" -ForegroundColor Yellow
+            Write-Host "削除できるブランチがありません、E -ForegroundColor Yellow
             return
         }
 
-        Write-Host "削除するブランチ名を入力してください。" -ForegroundColor Cyan
-        $branch = Read-Host "ブランチ名（空白でキャンセル）"
+        Write-Host "削除するブランチ名を�E力してください、E -ForegroundColor Cyan
+        $branch = Read-Host "ブランチ名�E�空白でキャンセル�E�E
         if ([string]::IsNullOrWhiteSpace($branch)) {
-            Write-Host "ブランチ削除をキャンセルしました。" -ForegroundColor Yellow
+            Write-Host "ブランチ削除をキャンセルしました、E -ForegroundColor Yellow
             return
         }
         if ($branches -notcontains $branch) {
-            throw "指定したブランチが見つかりません: $branch"
+            throw "持E��したブランチが見つかりません: $branch"
         }
 
         Write-Host "削除対象: $branch" -ForegroundColor Yellow
-        if (Read-YesNo -Prompt "このブランチを削除しますか？" -DefaultYes $False) {
-            Write-Host "ブランチ削除をキャンセルしました。" -ForegroundColor Yellow
+        if (Read-YesNo -Prompt "こ�Eブランチを削除しますか�E�E -DefaultYes $False) {
+            Write-Host "ブランチ削除をキャンセルしました、E -ForegroundColor Yellow
             return
         }
 
-        Write-StageProgress 1 1 "ブランチ削除" "$branch を削除しています..."
+        Write-StageProgress 1 1 "ブランチ削除" "$branch を削除してぁE��ぁE.."
         Invoke-RequiredCommand "jj" @("bookmark", "delete", $branch)
         
         Write-Host "`nブランチを削除しました: $branch" -ForegroundColor Green
@@ -814,46 +814,46 @@ function Invoke-BranchMerge {
     try {
         $branches = @(Get-Branches)
         if ($branches.Count -lt 2) {
-            Write-Host "マージには2つ以上のブランチが必要です。" -ForegroundColor Yellow
+            Write-Host "マ�Eジには2つ以上�Eブランチが忁E��です、E -ForegroundColor Yellow
             return
         }
 
-        Write-Host "マージ先（変更を取り込む側）を入力してください。" -ForegroundColor Cyan
-        $target = Read-Host "マージ先ブランチ名（空白でキャンセル）"
+        Write-Host "マ�Eジ先（変更を取り込む側�E�を入力してください、E -ForegroundColor Cyan
+        $target = Read-Host "マ�Eジ先ブランチ名�E�空白でキャンセル�E�E
         if ([string]::IsNullOrWhiteSpace($target)) {
-            Write-Host "ブランチマージをキャンセルしました。" -ForegroundColor Yellow
+            Write-Host "ブランチ�Eージをキャンセルしました、E -ForegroundColor Yellow
             return
         }
         if ($branches -notcontains $target) {
-            throw "マージ先ブランチが見つかりません: $target"
+            throw "マ�Eジ先ブランチが見つかりません: $target"
         }
 
-        Write-Host "マージ元（取り込む側）を入力してください。" -ForegroundColor Cyan
-        $source = Read-Host "マージ元ブランチ名（空白でキャンセル）"
+        Write-Host "マ�Eジ允E��取り込む側�E�を入力してください、E -ForegroundColor Cyan
+        $source = Read-Host "マ�Eジ允E��ランチ名�E�空白でキャンセル�E�E
         if ([string]::IsNullOrWhiteSpace($source)) {
-            Write-Host "ブランチマージをキャンセルしました。" -ForegroundColor Yellow
+            Write-Host "ブランチ�Eージをキャンセルしました、E -ForegroundColor Yellow
             return
         }
         if ($branches -notcontains $source) {
-            throw "マージ元ブランチが見つかりません: $source"
+            throw "マ�Eジ允E��ランチが見つかりません: $source"
         }
         if ($target -eq $source) {
-            throw "マージ先とマージ元には別のブランチを指定してください。"
+            throw "マ�Eジ先とマ�Eジ允E��は別のブランチを持E��してください、E
         }
 
-        Write-Host "$source を $target にマージします。" -ForegroundColor Yellow
-        if (Read-YesNo -Prompt "実行しますか？" -DefaultYes $False) {
-            Write-Host "ブランチマージをキャンセルしました。" -ForegroundColor Yellow
+        Write-Host "$source めE$target にマ�Eジします、E -ForegroundColor Yellow
+        if (Read-YesNo -Prompt "実行しますか�E�E -DefaultYes $False) {
+            Write-Host "ブランチ�Eージをキャンセルしました、E -ForegroundColor Yellow
             return
         }
 
-        Write-StageProgress 1 2 "ブランチマージ" "マージ変更を作成しています..."
+        Write-StageProgress 1 2 "ブランチ�Eージ" "マ�Eジ変更を作�EしてぁE��ぁE.."
         Invoke-RequiredCommand "jj" @("new", $target, $source)
-        Write-StageProgress 2 2 "ブランチマージ" "$target をマージ結果へ更新しています..."
+        Write-StageProgress 2 2 "ブランチ�Eージ" "$target を�Eージ結果へ更新してぁE��ぁE.."
         Invoke-RequiredCommand "jj" @("bookmark", "set", $target, "-r", "@")
         
-        Write-Host "`nブランチをマージしました: $source -> $target" -ForegroundColor Green
-        Write-Host "必要に応じて「変更を保存」から push してください。" -ForegroundColor DarkGray
+        Write-Host "`nブランチをマ�Eジしました: $source -> $target" -ForegroundColor Green
+        Write-Host "忁E��に応じて「変更を保存」かめEpush してください、E -ForegroundColor DarkGray
     }
     catch {
         
@@ -863,11 +863,11 @@ function Invoke-BranchMerge {
 
 function Invoke-BranchManagement {
     $items = @(
-        @{ Label = "ブランチを切り替え"; Color = "Magenta"; Action = { Invoke-BranchSwitch } },
-        @{ Label = "ブランチを作成"; Color = "Green"; Action = { Invoke-BranchCreate } },
-        @{ Label = "ブランチをマージ"; Color = "Blue"; Action = { Invoke-BranchMerge } },
+        @{ Label = "ブランチを刁E��替ぁE; Color = "Magenta"; Action = { Invoke-BranchSwitch } },
+        @{ Label = "ブランチを作�E"; Color = "Green"; Action = { Invoke-BranchCreate } },
+        @{ Label = "ブランチをマ�Eジ"; Color = "Blue"; Action = { Invoke-BranchMerge } },
         @{ Label = "ブランチを削除"; Color = "Red"; Action = { Invoke-BranchDelete } },
-        @{ Label = "戻る"; Color = "Gray"; Action = { return } }
+        @{ Label = "戻めE; Color = "Gray"; Action = { return } }
     )
     $selected = 0
 
@@ -893,7 +893,7 @@ function Invoke-BranchManagement {
                 if ($selected -eq ($items.Count - 1)) { return }
                 & $items[$selected].Action
                 Write-Host ""
-                Read-Host "Enter でブランチ操作メニューに戻ります"
+                Read-Host "Enter でブランチ操作メニューに戻りまぁE
             }
         }
     }
@@ -905,7 +905,7 @@ function Invoke-Publish {
 
         Invoke-Update
 
-        Write-StageProgress 1 4 "JC 保存" "変更を確認しています..."
+        Write-StageProgress 1 4 "JC 保孁E "変更を確認してぁE��ぁE.."
         Invoke-RequiredCommand "jj" @("status")
         
         Write-Host ""
@@ -916,39 +916,39 @@ function Invoke-Publish {
         $existingComment = $existingComment.Trim()
 
         if (-not [string]::IsNullOrWhiteSpace($existingComment)) {
-            Write-Host "現在のコメント:" -ForegroundColor Cyan
+            Write-Host "現在のコメンチE" -ForegroundColor Cyan
             Write-Host $existingComment -ForegroundColor DarkGray
 
-            if ( Read-YesNo -Prompt "このコメントを利用しますか？" -DefaultYes $true) {
+            if ( Read-YesNo -Prompt "こ�Eコメントを利用しますか�E�E -DefaultYes $true) {
                 $comment = $existingComment
             }
             else {
-                Write-Host "変更を保存するにはコメントが必要です。（空白でキャンセル）" -ForegroundColor Cyan
-                $comment = Read-Host "変更コメント"
+                Write-Host "変更を保存するにはコメントが忁E��です。（空白でキャンセル�E�E -ForegroundColor Cyan
+                $comment = Read-Host "変更コメンチE
             }
         }
         else {
-            Write-Host "変更を保存するにはコメントが必要です。（空白でキャンセル）" -ForegroundColor Cyan
-            $comment = Read-Host "変更コメント"
+            Write-Host "変更を保存するにはコメントが忁E��です。（空白でキャンセル�E�E -ForegroundColor Cyan
+            $comment = Read-Host "変更コメンチE
         }
 
         if ([string]::IsNullOrWhiteSpace($comment)) {
             
-            Write-Host "`n保存をキャンセルしました。" -ForegroundColor Yellow
+            Write-Host "`n保存をキャンセルしました、E -ForegroundColor Yellow
             return
         }
 
-        Write-StageProgress 2 4 "JC 保存" "変更にコメントを設定しています..."
+        Write-StageProgress 2 4 "JC 保孁E "変更にコメントを設定してぁE��ぁE.."
         Invoke-RequiredCommand "jj" @("desc", "-m", $comment)
 
-        Write-StageProgress 3 4 "JC 保存" "main を更新しています..."
+        Write-StageProgress 3 4 "JC 保孁E "main を更新してぁE��ぁE.."
         Invoke-RequiredCommand "jj" @("bookmark", "set", "main", "-r", "@")
 
-        Write-StageProgress 4 4 "JC 保存" "サーバーへアップロードしています..."
+        Write-StageProgress 4 4 "JC 保孁E "サーバ�EへアチE�EロードしてぁE��ぁE.."
         Invoke-RequiredCommand "jj" @("git", "push")
         
-        Write-Host "`nアップロードが完了しました。" -ForegroundColor Green
-        Write-Host "コメント: $comment" -ForegroundColor DarkGray
+        Write-Host "`nアチE�Eロードが完亁E��ました、E -ForegroundColor Green
+        Write-Host "コメンチE $comment" -ForegroundColor DarkGray
     }
     catch {
         
@@ -959,17 +959,17 @@ function Invoke-Publish {
 function Invoke-NewChange {
     Write-Header
     try {
-        Write-Host "新しい変更のコメントを入力してください。（空白でキャンセル）" -ForegroundColor Cyan
-        $comment = Read-Host "変更コメント"
+        Write-Host "新しい変更のコメントを入力してください。（空白でキャンセル�E�E -ForegroundColor Cyan
+        $comment = Read-Host "変更コメンチE
         if ([string]::IsNullOrWhiteSpace($comment)) {
             
-            Write-Host "`n変更をキャンセルしました。" -ForegroundColor Yellow
+            Write-Host "`n変更をキャンセルしました、E -ForegroundColor Yellow
             return
         }
-        Write-StageProgress 1 1 "JC 区切り" "新しい変更を作成しています..."
+        Write-StageProgress 1 1 "JC 区刁E��" "新しい変更を作�EしてぁE��ぁE.."
         Invoke-RequiredCommand "jj" @("new", "-m", $comment)
         
-        Write-Host "`n新しい変更を作成しました。" -ForegroundColor Green
+        Write-Host "`n新しい変更を作�Eしました、E -ForegroundColor Green
     }
     catch {
         
@@ -979,16 +979,16 @@ function Invoke-NewChange {
 
 function Invoke-ChangeDescriptionMenu {
     $items = @(
-        @{ Label = "新しい変更で区切る"; Color = "DarkCyan"; Action = { Invoke-NewChange } },
-        @{ Label = "既存の変更にコメントを付ける"; Color = "White"; Action = { Invoke-AddDescription } },
+        @{ Label = "新しい変更で区刁E��"; Color = "DarkCyan"; Action = { Invoke-NewChange } },
+        @{ Label = "既存�E変更にコメントを付けめE; Color = "White"; Action = { Invoke-AddDescription } },
         @{ Label = "変更履歴を閲覧"; Color = "DarkCyan"; Action = { Invoke-ViewHistory } },
-        @{ Label = "戻る"; Color = "Gray"; Action = { return } }
+        @{ Label = "戻めE; Color = "Gray"; Action = { return } }
     )
     $selected = 0
 
     while ($true) {
         Write-Header
-        Write-Host "  変更の区切り・コメント設定" -ForegroundColor White
+        Write-Host "  変更の区刁E��・コメント設宁E -ForegroundColor White
         Write-Host ""
         for ($index = 0; $index -lt $items.Count; $index++) {
             if ($index -eq $selected) {
@@ -1008,7 +1008,7 @@ function Invoke-ChangeDescriptionMenu {
                 if ($selected -eq ($items.Count - 1)) { return }
                 & $items[$selected].Action
                 Write-Host ""
-                Read-Host "Enter でメニューに戻ります"
+                Read-Host "Enter でメニューに戻りまぁE
             }
         }
     }
@@ -1029,7 +1029,7 @@ function Invoke-AddDescription {
                 if ($parts.Count -eq 3) {
                     $description = $parts[2].Trim()
                     if ([string]::IsNullOrWhiteSpace($description)) {
-                        $description = "(コメントなし)"
+                        $description = "(コメントなぁE"
                     }
                     $candidates += [PSCustomObject]@{
                         ChangeId    = $parts[0].Trim()
@@ -1040,15 +1040,15 @@ function Invoke-AddDescription {
             }
 
             if ($candidates.Count -eq 0) {
-                Write-Host "コメントを設定・変更できる未pushの変更はありません。" -ForegroundColor Green
+                Write-Host "コメントを設定�E変更できる未pushの変更はありません、E -ForegroundColor Green
                 return
             }
 
             $selectedIndex = 0
             while ($true) {
                 Write-Header
-                Write-Host "  コメントを設定・変更する変更を選択してください。" -ForegroundColor Cyan
-                Write-Host "  上下:選択  Enter:決定  Esc:キャンセル" -ForegroundColor DarkCyan
+                Write-Host "  コメントを設定�E変更する変更を選択してください、E -ForegroundColor Cyan
+                Write-Host "  上丁E選抁E Enter:決宁E Esc:キャンセル" -ForegroundColor DarkCyan
                 Write-Host ""
                 for ($index = 0; $index -lt $candidates.Count; $index++) {
                     $line = "$($candidates[$index].ChangeId)  $($candidates[$index].Timestamp)  $($candidates[$index].Description)"
@@ -1080,17 +1080,17 @@ function Invoke-AddDescription {
                 }
             }
 
-            $comment = Read-Host "変更コメント（上書き可・空白でキャンセル）"
+            $comment = Read-Host "変更コメント（上書き可・空白でキャンセル�E�E
             if ([string]::IsNullOrWhiteSpace($comment)) {
-                Write-Host "コメントが空のためキャンセルしました。" -ForegroundColor Yellow
+                Write-Host "コメントが空のためキャンセルしました、E -ForegroundColor Yellow
                 return
             }
 
-            Write-StageProgress 1 1 "コメント設定" "変更コメントを設定しています..."
+            Write-StageProgress 1 1 "コメント設宁E "変更コメントを設定してぁE��ぁE.."
             Invoke-RequiredCommand "jj" @("desc", "-r", $candidates[$selectedIndex].ChangeId, "-m", $comment)
             
-            Write-Host "`nコメントを設定しました。" -ForegroundColor Green
-            Write-Host "続けて別の変更にもコメントを設定できます。" -ForegroundColor DarkCyan
+            Write-Host "`nコメントを設定しました、E -ForegroundColor Green
+            Write-Host "続けて別の変更にもコメントを設定できます、E -ForegroundColor DarkCyan
         }
     }
     catch {
@@ -1102,17 +1102,17 @@ function Invoke-AddDescription {
 function Invoke-Undo {
     Write-Header
     try {
-        Write-Host "直前の操作を取り消します。" -ForegroundColor Yellow
+        Write-Host "直前�E操作を取り消します、E -ForegroundColor Yellow
         
-        if (Read-YesNo -Prompt "取り消しますか？" -DefaultYes $False) {
-            Write-Host "取り消しをキャンセルしました。" -ForegroundColor Yellow
+        if (Read-YesNo -Prompt "取り消しますか�E�E -DefaultYes $False) {
+            Write-Host "取り消しをキャンセルしました、E -ForegroundColor Yellow
             return
         }
 
-        Write-StageProgress 1 1 "JC Undo" "直前の操作を取り消しています..."
+        Write-StageProgress 1 1 "JC Undo" "直前�E操作を取り消してぁE��ぁE.."
         Invoke-RequiredCommand "jj" @("undo")
         
-        Write-Host "`n直前の操作を取り消しました。" -ForegroundColor Green
+        Write-Host "`n直前�E操作を取り消しました、E -ForegroundColor Green
     }
     catch {
         
@@ -1148,15 +1148,15 @@ function Invoke-ResolveConflicts {
         $conflictFiles = @(Get-ConflictFiles)
         if ($conflictFiles.Count -eq 0) {
             Write-Header
-            Write-Host "  コンフリクトがありません。" -ForegroundColor Green
+            Write-Host "  コンフリクトがありません、E -ForegroundColor Green
             return
         }
 
         $selected = 0
         while ($true) {
             Write-Header
-            Write-Host "  解決するコンフリクトを選択してください。" -ForegroundColor Cyan
-            Write-Host "  上下:選択  Enter:決定  Esc:キャンセル" -ForegroundColor DarkCyan
+            Write-Host "  解決するコンフリクトを選択してください、E -ForegroundColor Cyan
+            Write-Host "  上丁E選抁E Enter:決宁E Esc:キャンセル" -ForegroundColor DarkCyan
             Write-Host ""
             for ($index = 0; $index -lt $conflictFiles.Count; $index++) {
                 $line = "[C] $($conflictFiles[$index].Path)"
@@ -1183,24 +1183,24 @@ function Invoke-ResolveConflicts {
         $conflictPath = $conflictFiles[$selected].Path
         Write-Host ""
         Write-Host "対象: $conflictPath" -ForegroundColor Cyan
-        Write-Host "  L: ローカルを優先"
-        Write-Host "  R: リモートを優先"
+        Write-Host "  L: ローカルを優允E
+        Write-Host "  R: リモートを優允E
         Write-Host "  C: キャンセル"
-        $decision = Read-Host "解決方法"
+        $decision = Read-Host "解決方況E
         if ($decision -match '^(?i)l(ocal)?$') {
             $tool = ":ours"
             $side = "ローカル"
         }
         elseif ($decision -match '^(?i)r(emote)?$') {
             $tool = ":theirs"
-            $side = "リモート"
+            $side = "リモーチE
         }
         else {
-            Write-Host "コンフリクト解決をキャンセルしました。" -ForegroundColor Yellow
+            Write-Host "コンフリクト解決をキャンセルしました、E -ForegroundColor Yellow
             return
         }
 
-        Write-StageProgress 1 1 "コンフリクト解決" "$side を優先しています..."
+        Write-StageProgress 1 1 "コンフリクト解決" "$side を優先してぁE��ぁE.."
         Invoke-RequiredCommand "jj" @("resolve", "--tool", $tool, "--", $conflictPath)
         
         Write-Host "`nコンフリクトを解決しました: $conflictPath" -ForegroundColor Green
@@ -1214,7 +1214,7 @@ function Invoke-ResolveConflicts {
 function Invoke-ReviewChanges {
     $changedFiles = @()
     try {
-        Write-StageProgress 1 2 "変更を確認" "変更状態を確認しています..."
+        Write-StageProgress 1 2 "変更を確誁E "変更状態を確認してぁE��ぁE.."
         $statusOutput = @(& jj status)
         if ($LASTEXITCODE -ne 0) {
             throw "コマンドに失敗しました: jj status"
@@ -1232,7 +1232,7 @@ function Invoke-ReviewChanges {
         
         if ($changedFiles.Count -eq 0) {
             Write-Header
-            Write-Host "  変更されたファイルはありません。" -ForegroundColor Green
+            Write-Host "  変更されたファイルはありません、E -ForegroundColor Green
             return
         }
 
@@ -1247,7 +1247,7 @@ function Invoke-ReviewChanges {
 function Invoke-ViewHistory {
     Write-Header
     try {
-        Write-Host "  変更履歴（最近10件）" -ForegroundColor Cyan
+        Write-Host "  変更履歴�E�最迁E0件�E�E -ForegroundColor Cyan
         Write-Host ""
         & jj log -r "all()" -n 10 --no-pager
         if ($LASTEXITCODE -ne 0) {
@@ -1296,7 +1296,7 @@ function Read-ChangedFileChoice {
         }
 
         Write-Host ""
-        Write-Host "  Enter:差分を表示  Esc:戻る" -ForegroundColor DarkCyan
+        Write-Host "  Enter:差刁E��表示  Esc:戻めE -ForegroundColor DarkCyan
         $key = [Console]::ReadKey($true)
         switch ($key.Key) {
             "UpArrow" { $selected = ($selected - 1 + $ChangedFiles.Count) % $ChangedFiles.Count }
@@ -1317,23 +1317,23 @@ function Show-FileDiff {
     Write-Host ""
     & jj diff -- $Path
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "`n差分の表示に失敗しました。" -ForegroundColor Red
+        Write-Host "`n差刁E�E表示に失敗しました、E -ForegroundColor Red
     }
     Write-Host ""
-    Read-Host "Enter でファイル一覧に戻ります"
+    Read-Host "Enter でファイル一覧に戻りまぁE
 }
 
 function Read-MenuChoice {
     $items = @(
-        @{ Label = "最新の情報を取得"; Color = "Blue"; Action = { Invoke-Update } },
-        @{ Label = "変更を保存"; Color = "Green"; Action = { Invoke-Publish } },
-        @{ Label = "変更を確認"; Color = "Cyan"; Action = { Invoke-ReviewChanges } },
-        @{ Label = "変更を区切る / コメントを付け / 変更履歴"; Color = "DarkCyan"; Action = { Invoke-ChangeDescriptionMenu } },
-        @{ Label = "ブランチ操作（切り替え / 作成 / マージ / 削除）"; Color = "Magenta"; Action = { Invoke-BranchManagement } },
-        @{ Label = "直前の操作を取り消す"; Color = "Yellow"; Action = { Invoke-Undo } },
+        @{ Label = "最新の惁E��を取征E; Color = "Blue"; Action = { Invoke-Update } },
+        @{ Label = "変更を保孁E; Color = "Green"; Action = { Invoke-Publish } },
+        @{ Label = "変更を確誁E; Color = "Cyan"; Action = { Invoke-ReviewChanges } },
+        @{ Label = "変更を区刁E�� / コメントを付け / 変更履歴"; Color = "DarkCyan"; Action = { Invoke-ChangeDescriptionMenu } },
+        @{ Label = "ブランチ操作（�Eり替ぁE/ 作�E / マ�Eジ / 削除�E�E; Color = "Magenta"; Action = { Invoke-BranchManagement } },
+        @{ Label = "直前�E操作を取り消す"; Color = "Yellow"; Action = { Invoke-Undo } },
         @{ Label = "コンフリクトを解決"; Color = "Red"; Action = { Invoke-ResolveConflicts } },
         @{ Label = "保存済み設定を変更"; Color = "Yellow"; Action = { Invoke-ConfigChange } },
-        @{ Label = "終了"; Color = "Gray"; Action = { return } }
+        @{ Label = "終亁E; Color = "Gray"; Action = { return } }
     )
     $selected = 0
 
@@ -1358,7 +1358,7 @@ function Read-MenuChoice {
                 if ($selected -eq ($items.Count - 1)) { return }
                 & $items[$selected].Action
                 Write-Host ""
-                Read-Host "Enter でメニューに戻ります"
+                Read-Host "Enter でメニューに戻りまぁE
             }
         }
     }
@@ -1373,7 +1373,7 @@ try {
         Invoke-Update
 
         Write-Host ""
-        Read-Host "Enter でメニューに進みます"
+        Read-Host "Enter でメニューに進みまぁE
     }
     else {
         try {
@@ -1381,7 +1381,7 @@ try {
         }
         catch {
             Write-Host "`n保存済みプロジェクトを利用できません: $($_.Exception.Message)" -ForegroundColor Yellow
-            Write-Host "セットアップ情報を削除して、セットアップをやり直します。" -ForegroundColor Yellow
+            Write-Host "セチE��アチE�E惁E��を削除して、セチE��アチE�Eをやり直します、E -ForegroundColor Yellow
 
             Remove-Item -LiteralPath $script:SetupMarkerPath -Force
 
@@ -1390,16 +1390,16 @@ try {
             }
 
             Write-Host ""
-            Read-Host "Enter でメニューに進みます"
+            Read-Host "Enter でメニューに進みまぁE
         }
     }
 
-    # JujutsuControllerの更新確認
+    # JujutsuControllerの更新確誁E
     Test-Update
 
     Read-MenuChoice
 }
 catch {
-    Write-Host "`n致命的なエラー: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "`n致命皁E��エラー: $($_.Exception.Message)" -ForegroundColor Red
     exit 1
 }
